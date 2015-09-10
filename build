@@ -1,0 +1,2 @@
+#!/bin/bash
+CGO_ENABLES=0 go build -a -ldflags '-s' -o simple-forwarder simple-forwarder.go

@@ -1,0 +1,8 @@
+#!/bin/bash
+dir=$(dirname $(readlink -f ${0}))
+cd ${dir}
+. .version
+
+docker rm -v $(docker ps -a | grep simple-forwarder| awk '{ print $1; }' )
+docker rm -v $(docker ps -a | grep service-sfs-loadbalancer| awk '{ print $1; }' )
+docker rmi simple-forwarder:{latest,${version}}
