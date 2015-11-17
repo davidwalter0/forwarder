@@ -1,0 +1,14 @@
+id=dw-txs-
+ssh_key_name=id_rsa
+master=k8s-dw-txs-master-01
+os_user=centos
+name=simple-forward
+namespace=default
+yaml=/go/src/github.com/davidwalter0/simple-forward/simple-forward.yaml
+inyaml=/go/src/github.com/davidwalter0/simple-forward/simple-forward-template.yaml
+domain=cluster.local
+hubuid=davidwalter0
+k8srepo=git@dw-txs-k8s-git-repo:simple-forward.git
+hubrepo=git@github.com:davidwalter0/simple-forward.git
+buildyaml=/go/src/github.com/davidwalter0/simple-forward/simple-forward-build.yaml
+#port=

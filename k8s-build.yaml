@@ -1,0 +1,51 @@
+apiVersion: v0.1
+kind: test
+spec:
+- name: build-info
+  protocol: cmd
+  recv:
+    ack:
+      stdout: |
+        Build random info
+    nak: {}
+  send:
+    spec:
+      uri: file:///bin/bash
+      arg:
+      - -c
+      - |
+        echo starting process in ${HOSTNAME}
+- name: build-falcon
+  protocol: cmd
+  recv:
+    ack:
+      stdout: |
+        Build random output
+    nak: {}
+  send:
+    spec:
+      uri: file:///bin/bash
+      arg:
+      - -c
+      - |
+        #!/bin/bash
+
+        repo=simple-forward
+
+        mkdir -p /var/build
+        dir=$(mktemp --directory /var/build/build-XXXXXX)
+        function clean
+        {
+            echo would clean ${dir}
+            echo rm -rf ${dir}
+        }
+
+        trap clean exit term int
+        work=${dir}/${repo}
+        echo tmpdir=${dir} work directory=${work}
+        ls -al ${dir}
+        pushd ${dir}
+        git clone git@dw-txs-k8s-git-repo:${repo}.git
+        ./build
+        ldd ./simple-forwarder
+        ./dockerize
