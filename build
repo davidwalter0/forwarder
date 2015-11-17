@@ -4,7 +4,7 @@ cd ${dir}
 if go version|grep -q 1.4 ; then
     args="-s -w -X main.Build $(date -u +%Y.%m.%d.%H.%M.%S) -X main.Commit $(git log --format=%hash-%aI -n1)"
 fi
-if go version|grep -q 1.4 ; then
+if go version|grep -q 1.5 ; then
     args="-s -w -X main.Build=$(date -u +%Y.%m.%d.%H.%M.%S) -X main.Commit=$(git log --format=%hash-%aI -n1)"
 fi
 CGO_ENABLED=0 go build -a --tags netgo -ldflags "${args}" -o simple-forwarder simple-forwarder.go

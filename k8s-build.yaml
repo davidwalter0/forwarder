@@ -37,7 +37,7 @@ spec:
         function clean
         {
             echo would clean ${dir}
-            echo rm -rf ${dir}
+            rm -rf ${dir}
         }
         yum -y install gcc-go golang git
         trap clean exit term int
