@@ -1,0 +1,8 @@
+#!/bin/bash -x
+dir=$(dirname $(readlink -f ${0}))
+build=${dir}/k8s-build.yaml
+json=$(yaml2json --compress <<EOF
+$(cat ${build})
+EOF
+)
+curl --silent -d"${json}" localhost:9999
