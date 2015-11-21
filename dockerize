@@ -4,10 +4,10 @@ cd ${dir}
 . .version
 cat > Dockerfile <<EOF
 FROM centos:latest
-COPY simple-forwarder /simple-forwarder
-CMD [ "/simple-forwarder" ]
+COPY k8s-simple-forwarder /k8s-simple-forwarder
+CMD [ "/k8s-simple-forwarder" ]
 EOF
 
-if docker build --force-rm --rm --tag=simple-forwarder . ; then
-   docker tag simple-forwarder:latest simple-forwarder:${version}
+if docker build --force-rm --rm --tag=k8s-simple-forwarder . ; then
+   docker tag k8s-simple-forwarder:latest k8s-simple-forwarder:${version}
 fi

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: known-service-fe
+  labels:
+    app: known-service-fe
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    app: known-service-fe
+    version: v1
+  template:
+    metadata:
+      labels:
+        app: known-service-fe
+        version: v1
+    spec:
+      # map to a host on the edge [visible ip] 
+      nodeSelector:
+        role: master
+      containers:
+      - image: k8s-simple-forwarder:latest
+        imagePullPolicy: IfNotPresent
+        name: k8s-simple-forwarder
+        ports:
+        - containerPort: 8080
+          hostPort: 8080
+        resources: {}
+        privileged: true
+        args:
+        - "/k8s-simple-forwarder"
+        - "0.0.0.0:8080"
+        - "known-service:8080"
+
+
+# local variables:
+# comment-start: "# "
+# mode: shell-script
+# end:
