@@ -1,0 +1,67 @@
+#!/bin/bash -x
+
+function usage
+{
+    echo ${0##*/} step-or-current-process-name return-code
+    exit 3
+}
+
+step=${1}
+
+if [[ ! ${step:-} ]]; then
+    usage
+fi
+
+status=0
+
+if (( ${#} < 2 )); then
+    usage
+else
+    status=${2}
+fi
+
+case ${status} in
+    0)
+        status=success
+        ;;
+    1)
+        status=warning
+        ;;
+    2)
+        status=error
+        ;;
+    3)
+        status="process or sequence error"
+        ;;
+esac
+
+dir=$(dirname $(readlink -f ${0}))
+short=${dir##*/}
+gitlabhost=k8s-node-02
+user=davidwalter0
+# make the json file one per call.
+json=$(mktemp)
+yaml2json --compress > ${json} <<EOF
+attachments:                                                                                                        
+- color: "#D00000"
+  user: GitlabWebhook
+  fallback: |
+     <http://${gitlabhost}/${user}/${short}/builds|${short} step: ${step} status: ${status}>
+  fields:                                                                                   
+    - short: false                  
+      # title: "<http://${gitlabhost}/${user}/builds|${short} step: ${step} status: ${status}>"
+      value: |
+        <http://${gitlabhost}/${user}/${short}/builds|${short} step: ${step} status: ${status}>
+  # pretext: |
+  #   <http://${gitlabhost}/${user}/${short}/builds|${short} step: ${step} status: ${status}>
+EOF
+
+slackconfig=http://slack-config/slackurl
+slackurl=$(mktemp ${short}-slack-url.XXXX)
+curl --silent --output=${slackurl} ${slackconfig}
+echo slackurl=${slackurl}
+chmod 600 ${slackurl}
+if [[ -e ${slackurl} ]]; then
+    curl --silent $(cat ${slackurl}) -d@"${json}"
+fi
+rm -f ${json} ${slackurl}
