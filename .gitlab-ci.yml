@@ -10,3 +10,4 @@ build-k8s-simple-forward:
   tags:
     - shell
     - ssh
+
