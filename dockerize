@@ -1,13 +1,17 @@
 #!/bin/bash
 dir=$(dirname $(readlink -f ${0}))
 cd ${dir}
-. .version
+name=${dir##*/}
 cat > Dockerfile <<EOF
 FROM centos:latest
-COPY k8s-simple-forwarder /k8s-simple-forwarder
-CMD [ "/k8s-simple-forwarder" ]
+COPY bin/${name} /${name}
+CMD [ "/${name}" ]
 EOF
 
-if docker build --force-rm --rm --tag=k8s-simple-forwarder . ; then
-   docker tag k8s-simple-forwarder:latest k8s-simple-forwarder:${version}
+image=${name}:latest
+master=k8s-master-01
+target=${master}:5000/${image}
+if docker build --force-rm --rm --tag ${image} . ; then
+    docker tag -f ${image} ${target}
+    docker push ${target}
 fi

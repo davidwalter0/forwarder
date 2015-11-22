@@ -1,5 +1,6 @@
 #!/bin/bash
 dir=$(dirname $(readlink -f ${0}))
+name=${dir##*/}
 cd ${dir}
 if go version|grep -q 1.4 ; then
     args="-s -w -X main.Build $(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit $(git log --format=%hash-%aI -n1)"
@@ -7,4 +8,5 @@ fi
 if go version|grep -q 1.5 ; then
     args="-s -w -X main.Build=$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit=$(git log --format=%hash-%aI -n1)"
 fi
-CGO_ENABLED=0 go build -a --tags netgo -ldflags "${args}" -o k8s-simple-forwarder k8s-simple-forwarder.go
+CGO_ENABLED=0 go build -a --tags netgo -ldflags "${args}" -o ${dir}/bin/${name} ${name}.go
+

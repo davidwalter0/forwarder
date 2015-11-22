@@ -1,0 +1,12 @@
+build-k8s-simple-forward:
+  script: 
+    - echo "${HOSTNAME}" $(pwd) $(date)
+    - ./build
+    - bin/slack-status k8s-simple-forward-build ${?}
+    - ./dockerize
+    - bin/slack-status k8s-simple-forward-dockerize ${?}
+  only:
+    - k8s-cfg
+  tags:
+    - shell
+    - ssh
