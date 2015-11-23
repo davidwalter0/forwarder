@@ -36,7 +36,8 @@ case ${status} in
 esac
 
 dir=$(dirname $(readlink -f ${0}))
-short=$(basename ${dir##*/})
+short=${dir%/*}
+short=${short##*/}
 gitlabhost=k8s-node-02
 user=davidwalter0
 # make the json file one per call.
