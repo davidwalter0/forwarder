@@ -57,8 +57,8 @@ attachments:
 EOF
 
 slackconfig=http://slack-config/slackurl
-slackurl=$(mktemp ${short}-slack-url.XXXX)
-curl --silent --output=${slackurl} ${slackconfig}
+slackurl=$(mktemp /tmp/slack-url.XXXX)
+curl --silent --output ${slackurl} ${slackconfig}
 echo slackurl=${slackurl}
 chmod 600 ${slackurl}
 if [[ -e ${slackurl} ]]; then
