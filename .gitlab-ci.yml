@@ -1,4 +1,3 @@
-# build-k8s-simple-forward
 build-k8s-simple-forward:
   script: 
     - echo "${HOSTNAME}" $(pwd) $(date)
