@@ -1,4 +1,5 @@
 ### k8s-simple-forward
+[![build status](http://128.107.14.75:8888/ci/projects/3/status.png?ref=master)](http://128.107.14.75:8888/ci/projects/3?ref=master)
 
 Trivial forwarder to front applications from a service to a known
 accessible node.
