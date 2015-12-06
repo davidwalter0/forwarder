@@ -17,6 +17,7 @@ variables:
 build-k8s-simple-forward:
   stage: build
   script: 
+    - mkdir -p bin
     - export GOPATH=/go
     - export PATH=${GOPATH}/bin:${PATH}
     - echo "${HOSTNAME}" $(pwd) $(date)
