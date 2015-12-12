@@ -9,8 +9,8 @@ CMD [ "/${name}" ]
 EOF
 
 image=${name}:latest
-master=k8s-docker-registry
-target=${master}:5000/${image}
+registry=${registry:-k8s-docker-registry}
+target=${registry}:5000/${image}
 if docker build --force-rm --rm --tag ${image} . ; then
     docker tag -f ${image} ${target}
     docker push ${target}
