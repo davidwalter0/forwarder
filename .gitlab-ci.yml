@@ -42,7 +42,8 @@ build-k8s-simple-forward:
     - canary
     - wip/*
     - wip
-
+  except:
+    - master
   tags:
     - shell
     - ssh
