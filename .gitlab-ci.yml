@@ -10,7 +10,7 @@ build-k8s-simple-forward:
   script:
     - |
       set +x
-      curl -s -o env http://secrets-service/env
+      curl -s -o env http://k8s-secrets-service/env
       # configure environment from secrets service
       . ./env
       curl -s -o slack.sh ${slack};
