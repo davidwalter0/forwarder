@@ -26,10 +26,11 @@ build-k8s-simple-forward:
       ./slack.sh --step=${step} --gitlab-host=${gitlab_host} --gitlab-port=${gitlab_port} --gitlab-user=${gitlab_user} --slack-url=${config_url} --rc=${?}
 
   only:
-    - release
     - /^v[0-9]*\.[0-9]*\.[0-9]*$/
-    - /^release.*$/
-    - x/wip
+    - /^release-[0-9]*\.[0-9]$/
+    - release/*
+    - canary/*
+    - wip/*
 
   tags:
     - shell
