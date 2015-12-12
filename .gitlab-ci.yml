@@ -1,5 +1,9 @@
 stages:
   - build
+
+variables:
+  GIT_SSL_NO_VERIFY: "1"
+  GIT_SSL_CAINFO:    "${HOME}/.private/gitlab.crt"
   
 build-k8s-simple-forward:
   stage: build
