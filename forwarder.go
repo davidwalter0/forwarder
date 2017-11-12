@@ -17,89 +17,101 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync"
+	// "sync"
 	"sync/atomic"
 )
 
-// Load helper function from file to []byte
-func Load(filename string) []byte {
-	if len(filename) == 0 {
-		panic(fmt.Sprintf("Can't Load() a file with an empty name"))
-	}
-
-	var err error
-	var text []byte
-	if len(filename) > 0 {
-		text, err = ioutil.ReadFile(filename)
-		if err != nil {
-			log.Printf("%v.\n", err)
-			os.Exit(3)
-		}
-	}
-	return text
+func main() {
+	array := strings.Split(os.Args[0], "/")
+	me := array[len(array)-1]
+	fmt.Println(me, "version built as:", Build, "commit:", Commit)
+	Configure()
+	// defer waitAllConnections.Wait()
+	Run()
+	<-complete
 }
 
-type FORWARD_CFG struct {
-	File string `json:"mappings file" doc:"yaml format file to import mappings from\n        name:\n          downstream: host:port\n          upstream:   host:port\n        "`
-}
-
+var complete = make(chan bool)
 var counter uint64 = 0
-var wgroup *sync.WaitGroup = new(sync.WaitGroup)
 
-type Forwarder struct {
-	Connection net.Conn
-	Id         uint64
-	UpStream   string
-	DownStream string
-}
-
-// func forward(connection net.Conn, n uint64) {
+// Forward bidirectional connection to from up/down stream
 func (f *Forwarder) Forward() {
-	wgroup.Add(3)
+	log.Printf("(f*Forwarder) Forward Before Connection[%16d] Connect      %-45v %-45v\n", f.ID, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
+	client, err := net.Dial("tcp", f.UpStream)
+	if err != nil {
+		log.Printf("Connection failed: %v\n", err)
+		return
+	}
+	log.Printf("Connection[%16d] Connect      %-45v %-45v\n", f.ID, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
+
+	var closed uint64
+
+	closer := func() {
+		atomic.AddUint64(&closed, 1)
+		n := atomic.LoadUint64(&counter)
+		if n == 1 {
+			if err := client.Close(); err != nil {
+				log.Printf("Close failed with error: %v\n", err)
+			}
+			if err := f.Connection.Close(); err != nil {
+				log.Printf("Close failed with error: %v\n", err)
+			}
+		}
+	}
 	go func() {
-		done := make(chan bool, 2)
-		client, err := net.Dial("tcp", f.UpStream)
-
-		if err != nil {
-			log.Fatalf("Connection failed: %v", err)
+		defer closer()
+		if _, err = io.Copy(client, f.Connection); err != nil {
+			log.Printf("Connection failed: %v\n", err)
 		}
-		log.Printf("Connection[%16d] Connect               %45v %45v\n", f.Id, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
-		go func() {
-			defer client.Close()
-			defer f.Connection.Close()
-			io.Copy(client, f.Connection)
-			done <- true
-			log.Printf("Connection[%16d] Closing Recv   %45v %45v\n", f.Id, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
-			wgroup.Done()
-		}()
-
-		go func() {
-			defer client.Close()
-			defer f.Connection.Close()
-			io.Copy(f.Connection, client)
-			done <- true
-			log.Printf("Connection[%16d] Closing Send   %45v %45v\n", f.Id, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
-			wgroup.Done()
-		}()
-
-		for i := 0; i < 2; i++ {
-			<-done
-		}
-		log.Printf("Connection[%16d] Closed           %45v %45v\n", f.Id, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
 	}()
-	wgroup.Done()
+	go func() {
+		defer closer()
+		if _, err = io.Copy(f.Connection, client); err != nil {
+			log.Printf("Connection failed: %v\n", err)
+		}
+	}()
+	log.Printf("(f*Forwarder) Forward After  Connection[%16d] Connect      %-45v %-45v\n", f.ID, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
 }
 
-var Build string
-var Commit string
+// ListenForOneConnectionPair start a listener waiting for downstream
+// connections connecting them to their upstream pair
+func ListenForOneConnectionPair(downstream, upstream string) {
+	listener, err := net.Listen("tcp", downstream)
+	if err != nil {
+		log.Fatalf("net.Listen(\"tcp\", %s ) failed: %v", downstream, err)
+	}
+	for {
+		// waitAllConnections.Add(1)
+		log.Printf("Before Listener\n")
+		connection, err := listener.Accept()
+		if err != nil {
+			log.Fatalf("ERROR: failed to accept listener: %v", err)
+		}
+		atomic.AddUint64(&counter, 1)
+		n := atomic.LoadUint64(&counter)
+		log.Printf("Before Connection[%16d] Open         %-45v %-45v\n", n, connection.LocalAddr(), connection.RemoteAddr())
+		var forwarder = Forwarder{Connection: connection, ID: n, UpStream: upstream, DownStream: downstream}
+		forwarder.Forward()
+		log.Printf("After  Connection[%16d] Open         %-45v %-45v\n", n, connection.LocalAddr(), connection.RemoteAddr())
+	}
+	// waitAllConnections.Done()
+}
 
-var config FORWARD_CFG
-var forwards Forwards
+// Run parse the forward pairs and create a listener for each
+func Run() {
+	for k, v := range forwards {
+		var downstream, upstream = v.DownStream, v.UpStream
+		fmt.Println("key", k, "\n  downstream:", v.DownStream, "\n  upstream", v.UpStream)
+		go ListenForOneConnectionPair(downstream, upstream)
+	}
+}
 
+// Configure from environment variables or command line flags and load
+// the configuration file forwarding pairs.
 func Configure() {
 	var err error
 	forwards = make(Forwards, 0)
-	if err = cfg.Parse(&config); err != nil {
+	if err = cfg.Process("", &config); err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
@@ -115,50 +127,31 @@ func Configure() {
 		log.Fatalf("error: %v", err)
 	}
 
-	var jsonText []byte
-	jsonText, err = json.MarshalIndent(&forwards, "", "  ")
-	fmt.Printf("jsonText: \n%v\n", string(jsonText))
+	if config.Debug {
+		var jsonText []byte
+		jsonText, err = json.MarshalIndent(&forwards, "", "  ")
+		fmt.Printf("jsonText: \n%v\n", string(jsonText))
+	}
 
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	fmt.Printf("---\nforwards:\n%v\n\n", forwards)
-	for k, v := range forwards {
-		fmt.Println("key", k, "\n  downstream:", v.DownStream, "\n  upstream", v.UpStream)
-	}
-	fmt.Printf("---\nforwards:\n%v\n%T\n", forwards, forwards)
 }
 
-func Run() {
-	for k, v := range forwards {
-		var downstream, upstream = v.DownStream, v.UpStream
-		fmt.Println("key", k, "\n  downstream:", v.DownStream, "\n  upstream", v.UpStream)
+// Load helper function from file to []byte
+func Load(filename string) []byte {
+	if len(filename) == 0 {
+		panic(fmt.Sprintf("Can't Load() a file with an empty name"))
+	}
 
-		listener, err := net.Listen("tcp", downstream)
+	var err error
+	var text []byte
+	if len(filename) > 0 {
+		text, err = ioutil.ReadFile(filename)
 		if err != nil {
-			log.Fatalf("net.Listen(\"tcp\", %s ) failed: %v", downstream, err)
-		}
-
-		for {
-			connection, err := listener.Accept()
-			if err != nil {
-				log.Fatalf("ERROR: failed to accept listener: %v", err)
-			}
-			atomic.AddUint64(&counter, 1)
-			n := atomic.LoadUint64(&counter)
-			log.Printf("Connection[%16d] Open             %45v %45v\n", n, connection.LocalAddr(), connection.RemoteAddr())
-			var forwarder = Forwarder{Connection: connection, Id: n, UpStream: upstream, DownStream: downstream}
-			go forwarder.Forward()
+			log.Printf("%v\n", err)
+			os.Exit(3)
 		}
 	}
-}
-
-func main() {
-	Configure()
-	array := strings.Split(os.Args[0], "/")
-	me := array[len(array)-1]
-	fmt.Println(me, "version built as:", Build, "commit:", Commit)
-
-	defer wgroup.Wait()
-	Run()
+	return text
 }
