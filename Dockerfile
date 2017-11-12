@@ -1,3 +1,3 @@
-FROM centos:latest
-COPY simple-forwarder /simple-forwarder
-CMD [ "/simple-forwarder" ]
+FROM debian:stretch-slim
+COPY bin/forwarder /forwarder
+CMD [ "/forwarder" ]
