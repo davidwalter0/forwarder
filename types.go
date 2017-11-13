@@ -21,7 +21,7 @@ type Forwards map[MappingPair]Forward
 
 // Cfg options to configure forwarder
 type Cfg struct {
-	File  string `json:"file" doc:"yaml format file to import mappings from\n        name:\n          downstream: host:port\n          upstream:   host:port\n        " default:"/var/lib/forwarder/forward.yaml"`
+	File  string `json:"file" doc:"yaml format file to import mappings from\n        name:\n          downstream: host:port\n          upstream:   host:port\n        " default:"/var/lib/forwarder/forwards.yaml"`
 	Debug bool   `json:"debug" doc:"increase verboseness"`
 }
 

@@ -1,3 +1,5 @@
+# To enable kubernetes commands a valid configuration is required
+export kubectl=${GOPATH}/bin/kubectl  --kubeconfig=${PWD}/cluster/auth/kubeconfig
 
 
 .PHONY: deps install clean image build push
@@ -37,6 +39,12 @@ image: build
 	docker build --tag=davidwalter/$(notdir $(PWD)):latest .
 push: image
 	docker push davidwalter/$(notdir $(PWD)):latest
+yaml: build
+	applytmpl < daemonset.yaml.tmpl > daemonset.yaml
+delete: yaml
+	$(kubectl) delete ds/forwarder
+apply: yaml delete
+	$(kubectl) apply -f daemonset.yaml
 clean:
 	@if [[ -x "$(target)" ]]; then rm -f $(target); fi
 	@if [[ -d "bin" ]]; then rmdir bin; fi

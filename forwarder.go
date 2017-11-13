@@ -1,13 +1,12 @@
 // TODO
-// Add yaml daemonset config option for environment variable for default file location
-// Add volume mount for file
-// Add forwards
-// Add file change monitoring and reload
+// [X] Add yaml daemonset config option for environment variable for default file location
+// [X] Add volume mount for file
+// [X] Add forwards.yaml
+// [ ] Add file change monitoring and reload
 
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/davidwalter0/go-cfg"
 	"gopkg.in/yaml.v2"
@@ -17,7 +16,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	// "sync"
 	"sync/atomic"
 )
 
@@ -26,7 +24,6 @@ func main() {
 	me := array[len(array)-1]
 	fmt.Println(me, "version built as:", Build, "commit:", Commit)
 	Configure()
-	// defer waitAllConnections.Wait()
 	Run()
 	<-complete
 }
@@ -34,18 +31,16 @@ func main() {
 var complete = make(chan bool)
 var counter uint64 = 0
 
-// Forward bidirectional connection to from up/down stream
+// Forward bidirectional <-> connection to/from up/down stream
 func (f *Forwarder) Forward() {
-	log.Printf("(f*Forwarder) Forward Before Connection[%16d] Connect      %-45v %-45v\n", f.ID, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
 	client, err := net.Dial("tcp", f.UpStream)
 	if err != nil {
 		log.Printf("Connection failed: %v\n", err)
 		return
 	}
+
 	log.Printf("Connection[%16d] Connect      %-45v %-45v\n", f.ID, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
-
 	var closed uint64
-
 	closer := func() {
 		atomic.AddUint64(&closed, 1)
 		n := atomic.LoadUint64(&counter)
@@ -70,7 +65,6 @@ func (f *Forwarder) Forward() {
 			log.Printf("Connection failed: %v\n", err)
 		}
 	}()
-	log.Printf("(f*Forwarder) Forward After  Connection[%16d] Connect      %-45v %-45v\n", f.ID, f.Connection.LocalAddr(), f.Connection.RemoteAddr())
 }
 
 // ListenForOneConnectionPair start a listener waiting for downstream
@@ -81,20 +75,15 @@ func ListenForOneConnectionPair(downstream, upstream string) {
 		log.Fatalf("net.Listen(\"tcp\", %s ) failed: %v", downstream, err)
 	}
 	for {
-		// waitAllConnections.Add(1)
-		log.Printf("Before Listener\n")
 		connection, err := listener.Accept()
 		if err != nil {
 			log.Fatalf("ERROR: failed to accept listener: %v", err)
 		}
 		atomic.AddUint64(&counter, 1)
 		n := atomic.LoadUint64(&counter)
-		log.Printf("Before Connection[%16d] Open         %-45v %-45v\n", n, connection.LocalAddr(), connection.RemoteAddr())
 		var forwarder = Forwarder{Connection: connection, ID: n, UpStream: upstream, DownStream: downstream}
 		forwarder.Forward()
-		log.Printf("After  Connection[%16d] Open         %-45v %-45v\n", n, connection.LocalAddr(), connection.RemoteAddr())
 	}
-	// waitAllConnections.Done()
 }
 
 // Run parse the forward pairs and create a listener for each
@@ -125,12 +114,6 @@ func Configure() {
 	err = yaml.Unmarshal(text, &forwards)
 	if err != nil {
 		log.Fatalf("error: %v", err)
-	}
-
-	if config.Debug {
-		var jsonText []byte
-		jsonText, err = json.MarshalIndent(&forwards, "", "  ")
-		fmt.Printf("jsonText: \n%v\n", string(jsonText))
 	}
 
 	if err != nil {
