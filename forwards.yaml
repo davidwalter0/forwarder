@@ -1,0 +1,74 @@
+nginx:
+  downstream: "0.0.0.0:8999"
+  service: nginx
+  namespace: default
+  useendpoints: true
+  
+http-0:
+  downstream: "0.0.0.0:8889"
+  upstream: "nginx.default.svc.cluster.local:80"
+http-1:
+  downstream: "0.0.0.0:8890"
+  upstream: "nginx.default.svc.cluster.local:80"
+ssh-0:
+  downstream: "0.0.0.0:2920"
+  upstream: "0.0.0.0:2222"
+ssh-1:
+  downstream: "0.0.0.0:2921"
+  upstream: "0.0.0.0:2222"
+ssh-2:
+  downstream: "0.0.0.0:2922"
+  upstream: "0.0.0.0:2222"
+ssh-3:
+  downstream: "0.0.0.0:2923"
+  upstream: "0.0.0.0:2222"
+ssh-5:
+  downstream: "0.0.0.0:2923"
+  upstream: "0.0.0.0:2222"
+
+
+# ssh-0:
+#   downstream: "0.0.0.0:2920"
+#   upstream: "gfs-0:2222"
+# ssh-1:
+#   downstream: "0.0.0.0:2921"
+#   upstream: "gfs-1:2222"
+# ssh-2:
+#   downstream: "0.0.0.0:2922"
+#   upstream: "gfs-2:2222"
+# ssh-3:
+#   downstream: "0.0.0.0:2923"
+#   upstream: "gfs-3:2222"
+
+########## - name: http
+##########   downstream: "0.0.0.0:8889"
+##########   upstream: "nginx:80"
+########## - name: ssh-0
+##########   downstream: "0.0.0.0:2920"
+##########   upstream: "gfs-0:2222"
+########## - name: ssh-1
+##########   downstream: "0.0.0.0:2921"
+##########   upstream: "gfs-0:2222"
+########## - name: ssh-2
+##########   downstream: "0.0.0.0:2922"
+##########   upstream: "gfs-0:2222"
+########## - name: ssh-3
+##########   downstream: "0.0.0.0:2923"
+##########   upstream: "gfs-0:2222"
+
+# config:
+# - name: http
+#   downstream: "0.0.0.0:8889"
+#   upstream: "nginx:80"
+# - name: ssh-0
+#   downstream: "0.0.0.0:2920"
+#   upstream: "gfs-0:2222"
+# - name: ssh-1
+#   downstream: "0.0.0.0:2921"
+#   upstream: "gfs-0:2222"
+# - name: ssh-2
+#   downstream: "0.0.0.0:2922"
+#   upstream: "gfs-0:2222"
+# - name: ssh-3
+#   downstream: "0.0.0.0:2923"
+#   upstream: "gfs-0:2222"

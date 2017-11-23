@@ -1,0 +1,15 @@
+echo0:
+  source: "0.0.0.0:8888"
+  sink: "echo.default:8080"
+
+echo1:
+  source: "0.0.0.0:80"
+  service: echo
+  namespace: default
+  enableep: true
+
+echo2:
+  source: "0.0.0.0:8889"
+  service: echo
+  namespace: default
+  enableep: true
