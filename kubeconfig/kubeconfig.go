@@ -95,28 +95,25 @@ func Endpoints(name, namespace string) (endpoints []string) {
 		var err error
 		// use the current context in kubeconfig
 		eps, err = clientSet.CoreV1().Endpoints(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			panic(err.Error())
-		}
-		for _, ep := range eps.Items {
-			meta := ep.ObjectMeta
-			if name == meta.Name {
-				for _, set := range ep.Subsets {
-					for _, address := range set.Addresses {
-						for _, port := range set.Ports {
-							if len(meta.Namespace) > 0 {
-								namespace = meta.Namespace
+		if err == nil {
+			for _, ep := range eps.Items {
+				meta := ep.ObjectMeta
+				if name == meta.Name {
+					for _, set := range ep.Subsets {
+						for _, address := range set.Addresses {
+							for _, port := range set.Ports {
+								if len(meta.Namespace) > 0 {
+									namespace = meta.Namespace
+								}
+								endpoint := fmt.Sprintf("%s:%d", address.IP, port.Port)
+								endpoints = append(endpoints, endpoint)
 							}
-							// // fmt.Println(namespace, meta.Name)
-							// name := meta.Name
-							// // fmt.Printf("%s %s:%d\n", ep.Metadata, address.IP, port.Port)
-							// fmt.Printf("%s:%d\n", address.IP, port.Port)
-							endpoint := fmt.Sprintf("%s:%d", address.IP, port.Port)
-							endpoints = append(endpoints, endpoint)
 						}
 					}
 				}
 			}
+		} else {
+			log.Println("Endpoint error", err)
 		}
 	}
 	return

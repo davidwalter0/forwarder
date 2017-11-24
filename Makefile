@@ -11,11 +11,13 @@ DIR=$(MAKEFILE_DIR)
 # depends:=$(wildcard listener/*.go) $(wildcard kubeconfig/*.go) $(wildcard set/*.go) $(wildcard tracer/*.go) $(wildcard mgr/*.go)
 depends:=$(wildcard listener/*.go kubeconfig/*.go set/*.go tracer/*.go mgr/*.go)
 
-build_deps:=$(wildcard ./*.go)
+build_deps:=$(wildcard *.go)
 target:=bin/$(notdir $(PWD))
 
-all: $(target)
-	echo $(target) $(depends)
+all: $(target) 
+	@echo Target $(target)
+	@echo Build deps $(build_deps)
+	@echo Depends $(depends)
 
 # git:
 # 	git add $(depends) $(build_deps) Makefile pipes.yaml daemonset.yaml.tmpl Dockerfile .version
@@ -26,15 +28,15 @@ etags:
 .dep: $(target) $(depends) Makefile
 	touch .dep
 
-$(target): $(build_deps) $(depends)
+$(target): $(build_deps) $(depends) Makefile
 	@echo "Building via % rule for $@ from $<"
 	@echo $(depends)
 	@if go version|grep -q 1.4 ; then											\
-	    args="-s -w -X main.Version $${version} -X main.Build $$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit $$(git log --format=%hash-%aI -n1)";	\
+	    args="-s -w -X main.Version $${version} -X main.Build $$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit $$(git log --format=%h-%aI -n1)";	\
 	fi;															\
 	if go version|grep -qE "(1\.[5-9](\.?[0-9])*|1.[1-9][0-9](\.?[0-9])+|2.[0-9](\.?[0-9])*)"; then								\
             . .version;																		\
-	    args="-s -w -X main.Version=$${version} -X main.Build=$$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit=$$(git log --format=%hash-%aI -n1)";	\
+	    args="-s -w -X main.Version=$${version} -X main.Build=$$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit=$$(git log --format=%h-%aI -n1)";	\
 	fi;															\
 	CGO_ENABLED=0 go build --tags netgo -ldflags "$${args}" -o $@ $(build_deps) ;
 
@@ -43,9 +45,14 @@ install: build
 
 image: build
 	docker build --tag=davidwalter/$(notdir $(PWD)):latest .
+	. .version; \
+	docker tag davidwalter/$(notdir $(PWD)):latest \
+	davidwalter/$(notdir $(PWD)):$${version}
 
 push: image
 	docker push davidwalter/$(notdir $(PWD)):latest
+	. .version; \
+	docker push davidwalter/$(notdir $(PWD)):$${version}
 
 yaml: build
 	applytmpl < daemonset.yaml.tmpl > daemonset.yaml
