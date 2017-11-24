@@ -8,7 +8,9 @@ DIR=$(MAKEFILE_DIR)
 
 .PHONY: deps install clean image build push
 
-depends:=$(wildcard ./listener/*.go) $(wildcard ./kubeconfig/*.go) $(wildcard ./set/*.go) $(wildcard ./tracer/*.go)
+# depends:=$(wildcard listener/*.go) $(wildcard kubeconfig/*.go) $(wildcard set/*.go) $(wildcard tracer/*.go) $(wildcard mgr/*.go)
+depends:=$(wildcard listener/*.go kubeconfig/*.go set/*.go tracer/*.go mgr/*.go)
+
 build_deps:=$(wildcard ./*.go)
 target:=bin/$(notdir $(PWD))
 
