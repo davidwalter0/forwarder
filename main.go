@@ -25,7 +25,7 @@ import (
 	mgmt "github.com/davidwalter0/forwarder/mgr"
 )
 
-var mgr mgmt.Mgr
+var mgr *mgmt.Mgr = mgmt.NewMgr()
 
 // retries number of attempts
 var retries = 3

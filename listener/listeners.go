@@ -6,7 +6,7 @@ import (
 
 // Equal compares two ManagedListener objects
 func (lhs *ManagedListener) Equal(rhs *ManagedListener) bool {
-	defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace()()
+	defer trace.Tracer.ScopedTrace()()
 	return lhs.Source == rhs.Source &&
 		lhs.Sink == rhs.Sink &&
 		lhs.EnableEp == rhs.EnableEp &&
@@ -26,10 +26,7 @@ func (lhs *ManagedListener) Copy(rhs *ManagedListener) *ManagedListener {
 
 // Equal compares two PipeDefinition objects
 func (lhs *PipeDefinition) Equal(rhs *PipeDefinition) bool {
-	defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace()()
-	// if lhs == nil {
-	// 	lhs = new(PipeDefinition)
-	// }
+	defer trace.Tracer.ScopedTrace()()
 	return lhs.Source == rhs.Source &&
 		lhs.Sink == rhs.Sink &&
 		lhs.EnableEp == rhs.EnableEp &&
@@ -39,9 +36,6 @@ func (lhs *PipeDefinition) Equal(rhs *PipeDefinition) bool {
 
 // Copy points w/o erasing EndPoints
 func (lhs *PipeDefinition) Copy(rhs *PipeDefinition) *PipeDefinition {
-	// if lhs == nil {
-	// 	lhs = new(PipeDefinition)
-	// }
 	lhs.Source = rhs.Source
 	lhs.Sink = rhs.Sink
 	lhs.EnableEp = rhs.EnableEp

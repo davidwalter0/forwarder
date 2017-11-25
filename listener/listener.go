@@ -15,10 +15,17 @@ import (
 
 var retries = 3
 
+func init() {
+	// trace.Tracer.Detailed(true).Enable(true)
+}
+
 // Listen open listener on address
 func Listen(address string) (listener net.Listener) {
+	defer trace.Tracer.ScopedTrace()()
 	var err error
-	// defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace(fmt.Sprintf("listener:%v err: %v", listener, err))()
+	if false {
+		defer trace.Tracer.ScopedTrace(fmt.Sprintf("listener:%v err: %v", listener, err))()
+	}
 	for i := 0; i < retries; i++ {
 		listener, err = net.Listen("tcp", address)
 		if err != nil {
@@ -42,7 +49,7 @@ type PipeDefinition struct {
 
 // NewPipeDefinition create and initialize a PipeDefinition
 func NewPipeDefinition(pipe *PipeDefinition) *PipeDefinition {
-	defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace()()
+	defer trace.Tracer.ScopedTrace()()
 	return &PipeDefinition{
 		Source:    pipe.Source,
 		Sink:      pipe.Sink,
@@ -60,15 +67,18 @@ type ManagedListener struct {
 	PipeDefinition
 	Listener   net.Listener   `json:"-"`
 	Pipes      map[*Pipe]bool `json:"-"`
-	Mutex      mutex.Mutex    `json:"-"`
+	Mutex      *mutex.Mutex   `json:"-"`
 	Wg         sync.WaitGroup `json:"-"`
 	Kubernetes bool           `json:"-"`
 	n          uint64
+	MapAdd     chan *Pipe
+	MapRm      chan *Pipe
+	MapClear   chan bool
 }
 
 // NewManagedListener create and populate a ManagedListener
 func NewManagedListener(pipe *PipeDefinition, kubeConfig kubeconfig.KubeConfig) *ManagedListener {
-	defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace()()
+	defer trace.Tracer.ScopedTrace()()
 	return &ManagedListener{
 		PipeDefinition: *pipe,
 		// PipeDefinition: PipeDefinition{
@@ -80,65 +90,112 @@ func NewManagedListener(pipe *PipeDefinition, kubeConfig kubeconfig.KubeConfig) 
 		// },
 		Listener:   Listen(pipe.Source),
 		Pipes:      make(map[*Pipe]bool),
-		Mutex:      mutex.Mutex{},
+		Mutex:      &mutex.Mutex{},
 		Kubernetes: kubeConfig.Kubernetes,
+		MapAdd:     make(chan *Pipe, 3),
+		MapRm:      make(chan *Pipe, 3),
+		MapClear:   make(chan bool),
 	}
 }
 
-// Monitor for this ManagedListener
-func (ml *ManagedListener) Monitor() func() {
-	// defer trace.Tracer.Enable(trace.Enabled).ScopedTrace(fmt.Sprintf("ManagedListener: %v", *ml))()
-	return ml.Mutex.Monitor()
+// NewPipe creates a Pipe and returns a pointer to the same
+func NewPipe(ml *ManagedListener, source, sink net.Conn) (pipe *Pipe) {
+	defer ml.Monitor()()
+	pipe = &Pipe{SourceConn: source, SinkConn: sink, MapRm: ml.MapRm, Mutex: ml.Mutex}
+	ml.MapAdd <- pipe
+	return
 }
+
+const (
+	// Open : State
+	Open = iota
+	// Closed : State
+	Closed
+)
 
 // Pipe a connection initiated by the return from listen and the
 // up/down stream host:port pairs
 type Pipe struct {
 	SourceConn net.Conn
 	SinkConn   net.Conn
-	Pipes      *map[*Pipe]bool
-	Closed     bool
+	MapRm      chan *Pipe
+	State      uint64
+	Mutex      *mutex.Mutex
 }
 
-// Open a link between source and sink
-func (p *Pipe) Connect() {
-	defer trace.Tracer.Enable(trace.Enabled).ScopedTrace(fmt.Sprintf("Pipe: %v", *p))()
+// Monitor lock link into
+func (pipe *Pipe) Monitor(args ...interface{}) func() {
+	defer trace.Tracer.ScopedTrace(args...)()
+	return pipe.Mutex.MonitorTrace(args...)
+}
+
+// Monitor for this ManagedListener
+func (ml *ManagedListener) Monitor(args ...interface{}) func() {
+	defer trace.Tracer.ScopedTrace(args...)()
+	// defer trace.Tracer.ScopedTrace(fmt.Sprintf("ManagedListener: %v", *ml))()
+	return ml.Mutex.MonitorTrace(args...)
+}
+
+// Connect opens a link between source and sink
+func (pipe *Pipe) Connect() {
+	defer trace.Tracer.ScopedTrace()()
 	go func() {
-		defer trace.Tracer.Enable(trace.Enabled).ScopedTrace()()
-		var err error
-		defer p.Close()
-		if _, err = io.Copy(p.SinkConn, p.SourceConn); err != nil {
-			log.Printf("Connection failed: %v\n", err)
-		}
+		defer trace.Tracer.ScopedTrace()()
+		defer pipe.Close()
+		io.Copy(pipe.SinkConn, pipe.SourceConn)
 	}()
 	go func() {
-		defer trace.Tracer.Enable(trace.Enabled).ScopedTrace()()
-		var err error
-		defer p.Close()
-		if _, err = io.Copy(p.SourceConn, p.SinkConn); err != nil {
-			log.Printf("Connection failed: %v\n", err)
-		}
+		defer trace.Tracer.ScopedTrace()()
+		defer pipe.Close()
+		io.Copy(pipe.SourceConn, pipe.SinkConn)
 	}()
 }
 
 // Close a link between source and sink
-func (p *Pipe) Close() {
-	defer trace.Tracer.Enable(trace.Enabled).ScopedTrace()()
-	p.SourceConn.Close()
-	p.SinkConn.Close()
-	pipe := *p
-	delete(*pipe.Pipes, p)
+func (pipe *Pipe) Close() {
+	defer trace.Tracer.ScopedTrace()()
+	exit := pipe.Monitor()
+	if pipe.State == Open {
+		pipe.SinkConn.Close()
+		pipe.SourceConn.Close()
+		pipe.MapRm <- pipe
+	}
+	exit()
+}
+
+// PipeMapHandler adds, removes, closes and single threads access to map list
+func (ml *ManagedListener) PipeMapHandler() {
+	for {
+		select {
+		case pipe := <-ml.MapAdd:
+			{
+				exit := trace.Tracer.ScopedTrace("MapAdd", *pipe)
+				pipe.State = Open
+				ml.Pipes[pipe] = true
+				exit()
+			}
+		case pipe := <-ml.MapRm:
+			{
+				exit := trace.Tracer.ScopedTrace("MapRm", *pipe)
+				pipe.State = Closed
+				delete(ml.Pipes, pipe)
+				exit()
+			}
+		}
+	}
 }
 
 // Open listener for this endPtDef
 func (ml *ManagedListener) Open() {
-	defer trace.Tracer.Enable(trace.Enabled).ScopedTrace()()
+	defer trace.Tracer.ScopedTrace()()
 	go ml.Listening()
+	go ml.PipeMapHandler()
 }
 
 // NextEndPoint returns the next host:port pair if more than one available
 // round robin selection
 func (ml *ManagedListener) NextEndPoint() (sink string) {
+	defer trace.Tracer.ScopedTrace()()
 	var n uint64
 	// Don't use k8s endpoint lookup if not in a k8s cluster
 	if ml.Kubernetes && ml.EnableEp && len(ml.Endpoints) > 0 {
@@ -152,18 +209,17 @@ func (ml *ManagedListener) NextEndPoint() (sink string) {
 
 // Accept expose ManagedListener's listener
 func (ml *ManagedListener) Accept() (net.Conn, error) {
-	// defer trace.Tracer.Enable(trace.Enabled).ScopedTrace()()
+	defer trace.Tracer.ScopedTrace()()
 	return ml.Listener.Accept()
 }
 
 // Listening on managed listener
 func (ml *ManagedListener) Listening() {
-	// defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace(fmt.Sprintf("listener:\n%v\n", kubeconfig.Yamlify(ml.PipeDefinition)))()
-	// log.Println(kubeconfig.Yamlify(ml.PipeDefinition))
+	defer trace.Tracer.ScopedTrace()()
 	for {
 		var err error
 		var SourceConn, SinkConn net.Conn
-		// defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace(fmt.Sprintf("listener:%v", ml))()
+		// defer trace.Tracer.ScopedTrace(fmt.Sprintf("listener:%v", ml))()
 		if SourceConn, err = ml.Accept(); err != nil {
 			log.Printf("Connection failed: %v\n", err)
 			break
@@ -174,14 +230,14 @@ func (ml *ManagedListener) Listening() {
 			log.Printf("Connection failed: %v\n", err)
 			break
 		}
-		pipe := &Pipe{SourceConn: SourceConn, SinkConn: SinkConn, Pipes: &ml.Pipes}
-		ml.Pipes[pipe] = true
+		var pipe = NewPipe(ml, SourceConn, SinkConn)
 		go pipe.Connect()
 	}
 }
 
 // Close a listener and it's children
 func (ml *ManagedListener) Close() {
+	defer trace.Tracer.ScopedTrace()()
 	if err := ml.Listener.Close(); err != nil {
 		log.Println("Error closing listener", ml.Listener)
 	}

@@ -102,7 +102,44 @@ TODO
 - [X] Add pipes.yaml
 - [X] Add file change monitoring and reload
 - [X] Add multiple endpoint select
+- [X] Watch config file change
+- [X] Add mgmt monitor for concurrent access/update/use of listeners
+- [X] Manual lock mutex in loops, to conform to go scope rules
+- [X] Run go routine with args pipe to add and remove pipes per managed listener
+- [X] On close remove pipe record from mgr
+- [X] Close changed listener's connections
 - [ ] Unit Test Reload
 - [ ] Unit Test Kill and Restart go routines
 - [ ] Add service watcher for endpoint changes
-- [ ] Add mgmt monitor for concurrent access/update/use of listeners
+
+
+---
+
+*Process Flow*
+
+Run
+- Start
+  - load kubeConfig
+  - load pipe description yaml
+  - create a listener and auto create connection 'pipes' for each new connection
+  - if using kubernetes endpoints load from the service and namespace
+
+- On new connection
+  - open the connection
+  - add connection pair to managed listener's pipe list
+  - remove connection on close
+
+- On pipe description config file change
+  - reload the file
+  - remove connections not described in the newly loaded config
+  - add new connections for new descriptions
+  - replace existing listeners if their description changed
+
+---
+
+*Extensions*
+
+- Possible extensions
+  - Allow existing connections to persist until closed even when the
+    configuration has been altered
+

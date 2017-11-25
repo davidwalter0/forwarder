@@ -1,18 +1,4 @@
-// New work flow
-// RUN
-// - load/reload kubeConfig
-// - if not listening, create new listener
-
-//   - new connection
-//     - add connection pair to pipe list
-
-// Allow existing connections to persist until closed even when the
-// kubeConfig is been removed - defer removal code
-//     - run go routine with args pipe & remove method
-//     - on close remove pipe record from mgr
-//   - close changed listener's connections
-//     - create go routine to close new items
-//   - run cleanup close loop
+// mgr owns the listener logic and configuration watch
 package mgr
 
 import (
@@ -62,18 +48,26 @@ type ManagedListener listener.ManagedListener
 // NewManagedListener object create
 var NewManagedListener = listener.NewManagedListener
 
+// NewPipeDefinition object create
+var NewPipeDefinition = listener.NewPipeDefinition
+
 var pipeDefs *map[string]*listener.PipeDefinition
 
 // Mgr management info for listeners
 type Mgr struct {
 	Listeners map[string]*listener.ManagedListener
-	Mutex     mutex.Mutex
+	Mutex     *mutex.Mutex
+}
+
+// NewMgr create a new Mgr
+func NewMgr() *Mgr {
+	return &Mgr{Listeners: make(map[string]*listener.ManagedListener), Mutex: &mutex.Mutex{}}
 }
 
 // Monitor lifts mutex deferable lock to Mgr object
 func (mgr *Mgr) Monitor() func() {
-	defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace()()
-	return mgr.Mutex.Monitor()
+	defer trace.Tracer.ScopedTrace()()
+	return mgr.Mutex.MonitorTrace()
 }
 
 // Monitor lifts mutex deferable lock to Mgr object
@@ -93,8 +87,7 @@ func (mgr *Mgr) LoadEndpoints() {
 // Run primary processing loop
 func (mgr *Mgr) Run() {
 	Configure()
-	mgr.Listeners = make(map[string]*listener.ManagedListener)
-	// defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace()()
+	// defer trace.Tracer.ScopedTrace()()
 	{
 		var m = make(map[string]*listener.PipeDefinition)
 		mgr.Merge(&m)
@@ -124,40 +117,36 @@ func (mgr *Mgr) Run() {
 
 // Merge the kubeConfiguration of pipeDefs
 func (mgr *Mgr) Merge(lhs *map[string]*listener.PipeDefinition) {
-	defer mgr.Monitor()()
-	defer trace.Tracer.Detailed(trace.Detail).Enable(trace.Enabled).ScopedTrace()()
+	defer mgr.Mutex.MonitorTrace("Merge")()
+	defer trace.Tracer.ScopedTrace()()
 	rhs := LoadEndPts()
 	var LOnly, Common, ROnly = set.Difference(lhs, rhs)
 	// Not Common or in the right hand (new kubeConfig) set, are now
 	// vestiges of the prior (lhs) set
 	for _, k := range LOnly {
-		{
-			log.Println("closing lhs[k]", k, (*lhs)[k])
-			mgr.Listeners[k].Close()
-			delete((*lhs), k)
-			delete(mgr.Listeners, k)
-		}
+		log.Println("closing lhs[k]", k, (*lhs)[k])
+		mgr.Listeners[k].Close()
+		delete((*lhs), k)
+		delete(mgr.Listeners, k)
 	}
 
 	// If Common names were updated, replace with new kubeConfig
 	for _, k := range Common {
-		{
-			log.Println("common lhs[k]", k, (*lhs)[k], "equal", !(*lhs)[k].Equal((*rhs)[k]))
-			if !(*lhs)[k].Equal((*rhs)[k]) {
-				mgr.Listeners[k].Close()
-				delete((*lhs), k)
-				delete(mgr.Listeners, k)
-				mgr.Listeners[k] = NewManagedListener((*rhs)[k], kubeConfig)
-				(*lhs)[k] = listener.NewPipeDefinition((*rhs)[k])
-				mgr.Listeners[k].Open()
-			}
+		log.Println("common lhs[k]", k, (*lhs)[k], "equal", !(*lhs)[k].Equal((*rhs)[k]))
+		if !(*lhs)[k].Equal((*rhs)[k]) {
+			mgr.Listeners[k].Close()
+			delete((*lhs), k)
+			delete(mgr.Listeners, k)
+			mgr.Listeners[k] = NewManagedListener((*rhs)[k], kubeConfig)
+			(*lhs)[k] = NewPipeDefinition((*rhs)[k])
+			mgr.Listeners[k].Open()
 		}
 	}
 
 	// Add new items (not in L, existing)
 	for _, k := range ROnly {
 		log.Println("right only rhs[k]", k, (*rhs)[k])
-		(*lhs)[k] = listener.NewPipeDefinition((*rhs)[k])
+		(*lhs)[k] = NewPipeDefinition((*rhs)[k])
 		mgr.Listeners[k] = NewManagedListener((*rhs)[k], kubeConfig)
 		mgr.Listeners[k].Open()
 	}

@@ -6,7 +6,7 @@ import (
 
 var Tracer = tracer.New()
 var Detail = false
-var Enabled = true
+var Enabled = false
 
 func init() {
 	Tracer.Detailed(Detail).Enable(Enabled)

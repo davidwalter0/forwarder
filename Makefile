@@ -4,12 +4,12 @@ export GOPATH=/go
 SHELL=/bin/bash
 MAKEFILE_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 CURRENT_DIR := $(notdir $(patsubst %/,%,$(dir $(MAKEFILE_DIR))))
-DIR=$(MAKEFILE_DIR)
+export DIR=$(MAKEFILE_DIR)
 
-.PHONY: deps install clean image build push
+.PHONY: deps install clean image build push test
 
 # depends:=$(wildcard listener/*.go) $(wildcard kubeconfig/*.go) $(wildcard set/*.go) $(wildcard tracer/*.go) $(wildcard mgr/*.go)
-depends:=$(wildcard listener/*.go kubeconfig/*.go set/*.go tracer/*.go mgr/*.go)
+depends:=$(shell ls -1 listener/*.go kubeconfig/*.go set/*.go tracer/*.go mgr/*.go | grep -v test)
 
 build_deps:=$(wildcard *.go)
 target:=bin/$(notdir $(PWD))
@@ -67,3 +67,11 @@ apply: yaml
 clean:
 	@if [[ -x "$(target)" ]]; then rm -f $(target); fi
 	@if [[ -d "bin" ]]; then rmdir bin; fi
+
+test:
+	cd test;. test-server/environment; ./run ;							\
+	$(DIR)/bin/forwarder --file test.yaml & echo $$! > $(DIR)/test/forwarder.pid ;			\
+	echo "until curl -s -k https://localhost:$${APP_PORT}/ &> /dev/null; do sleep 5; done";	\
+	until curl -s -k https://localhost:$${APP_PORT}/ &> /dev/null; do sleep 5; done;		\
+	curl -s localhost:8888; curl -s localhost:8888;	curl -s localhost:8888;				\
+	/bin/kill -9 $$(cat $(DIR)/test/forwarder.pid) $$(cat $(DIR)/test/simple.pid);

@@ -1,0 +1,8 @@
+#!/bin/bash -x
+TEST_SERVER_DIR=${0%/*}/test-server
+TEST_DATA_DIR=${0%/*}/test-server
+
+. ${TEST_DATA_DIR}/environment
+
+go run ${TEST_SERVER_DIR}/simple-server.go &
+echo $! > ./simple.pid

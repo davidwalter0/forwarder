@@ -1,0 +1,8 @@
+#!/bin/bash
+export PROJECT=FORWARDER
+export HOSTS="localhost 127.0.0.1 192.168.0.1"
+export APP_HOST=0.0.0.0 ;
+export APP_PORT=8081 ;
+export APP_PATH=${TEST_DATA_DIR};
+export APP_CERT=${TEST_SERVER_DIR}/server.pem ;
+export APP_KEY=${TEST_SERVER_DIR}/server.key ; 
