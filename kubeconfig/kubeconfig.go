@@ -42,13 +42,12 @@ var kubeRestConfig *restclient.Config
 // clientSet api calls
 var clientSet *kubernetes.Clientset
 
-// KubeConfig options to configure endPtDefn
-type KubeConfig struct {
-	File         string `json:"file"          doc:"yaml format file to import mappings from\n        name:\n          source: host:port\n          sink:   host:port\n        " default:"/var/lib/forwarder/pipes.yaml"`
-	Debug        bool   `json:"debug"         doc:"increase verboseness"`
-	KubeConfig   string `json:"kubeconfig"    doc:"kubernetes auth secrets / configuration file"`
-	UseInCluster bool   `json:"useincluster"  doc:"use incluster configuration options" default:"true"`
-	Kubernetes   bool   `json:"kubernetes"    doc:"using kubernetes configuration, and enable endpoint load from a service name, if not, skip cluster config option parsing" default:"true"`
+// Cfg options to configure endPtDefn
+type Cfg struct {
+	File       string `json:"file"          doc:"yaml format file to import mappings from\n        name:\n          source: host:port\n          sink:   host:port\n        " default:"/var/lib/forwarder/pipes.yaml"`
+	Debug      bool   `json:"debug"         doc:"increase verbosity" default:"false"`
+	Kubeconfig string `json:"kubeconfig"    doc:"kubernetes auth secrets / configuration file"`
+	Kubernetes bool   `json:"kubernetes"    doc:"using kubernetes configuration, and enable endpoint load from a service name, if not, skip cluster config option parsing" default:"true"`
 }
 
 // CheckInCluster reports if the env variable is set for cluster
@@ -56,21 +55,21 @@ func CheckInCluster() bool {
 	return len(os.Getenv("KUBERNETES_PORT")) > 0
 }
 
-// LoadKubeConfig sets up kubernetes authentication options
-func (kubeConfig *KubeConfig) LoadKubeConfig() {
+// LoadCfg sets up kubernetes authentication options
+func (cfg *Cfg) LoadCfg() {
 	var err error
-	// creates the in-cluster kubeConfig
+	// creates the in-cluster configuration
 	kubeRestConfig, err = restclient.InClusterConfig()
 	if err != nil {
-		// try with a kubeconfig
-		kubeRestConfig, err = clientcmd.BuildConfigFromFlags("", kubeConfig.KubeConfig)
+		// try with a kubeconfig file
+		kubeRestConfig, err = clientcmd.BuildConfigFromFlags("", cfg.Kubeconfig)
 	}
 
 	if err == nil {
 		// creates the clientSet
 		clientSet, err = kubernetes.NewForConfig(kubeRestConfig)
 		if err == nil {
-			kubeConfig.Kubernetes = true
+			cfg.Kubernetes = true
 		}
 	}
 }

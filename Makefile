@@ -14,7 +14,7 @@ depends:=$(shell ls -1 listener/*.go kubeconfig/*.go set/*.go tracer/*.go mgr/*.
 build_deps:=$(wildcard *.go)
 target:=bin/$(notdir $(PWD))
 
-all: $(target) 
+all: $(target) bin/echo
 	@echo Target $(target)
 	@echo Build deps $(build_deps)
 	@echo Depends $(depends)
@@ -27,6 +27,11 @@ etags:
 
 .dep: $(target) $(depends) Makefile
 	touch .dep
+
+bin/echo: echo/echo.go Makefile
+	go build -tags netgo -ldflags '-w -s' -o bin/echo echo/echo.go
+
+build: $(target) bin/echo
 
 $(target): $(build_deps) $(depends) Makefile
 	@echo "Building via % rule for $@ from $<"

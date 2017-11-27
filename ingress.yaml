@@ -1,0 +1,4 @@
+dashboard:
+  source: "0.0.0.0:9443"
+  sink: "172.17.4.201:9443"
+  debug: true

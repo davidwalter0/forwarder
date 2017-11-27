@@ -31,7 +31,7 @@ var Build string
 // Commit git string
 var Commit string
 
-var kubeConfig kubeconfig.KubeConfig
+var kubeConfig kubeconfig.Cfg
 
 var reload = make(chan os.FileInfo)
 var delta = time.Duration(5)
@@ -70,20 +70,19 @@ func (mgr *Mgr) Monitor() func() {
 	return mgr.Mutex.MonitorTrace()
 }
 
+/*
 // Monitor lifts mutex deferable lock to Mgr object
 func (mgr *Mgr) LoadEndpoints() {
-	for k, v := range mgr.Listeners {
-		if v != nil {
-			if v.EnableEp {
-				v.Endpoints = kubeconfig.Endpoints(v.Service, v.Namespace)
-				if kubeConfig.Debug {
-					log.Println("mgr", k, v.Service, v.Namespace, v.Endpoints, v.Source, v.Sink)
-				}
+	for k, ml := range mgr.Listeners {
+		if ml != nil {
+			if ml.EnableEp {
+				ml.LoadEndpoints()
+				log.Println("mgr", k, ml.Service, ml.Namespace, ml.Endpoints, ml.Source, ml.Sink)
 			}
 		}
 	}
 }
-
+*/
 // Run primary processing loop
 func (mgr *Mgr) Run() {
 	Configure()
@@ -134,23 +133,29 @@ func (mgr *Mgr) Merge(lhs *map[string]*listener.PipeDefinition) {
 	for _, k := range Common {
 		log.Println("common lhs[k]", k, (*lhs)[k], "equal", !(*lhs)[k].Equal((*rhs)[k]))
 		if !(*lhs)[k].Equal((*rhs)[k]) {
-			mgr.Listeners[k].Close()
-			delete((*lhs), k)
-			delete(mgr.Listeners, k)
-			mgr.Listeners[k] = NewManagedListener((*rhs)[k], kubeConfig)
-			(*lhs)[k] = NewPipeDefinition((*rhs)[k])
-			mgr.Listeners[k].Open()
+			if listener, ok := mgr.Listeners[k]; ok && listener != nil {
+				mgr.Listeners[k].Close()
+				delete((*lhs), k)
+				delete(mgr.Listeners, k)
+				(*rhs)[k].Name = k
+				(*lhs)[k] = NewPipeDefinition((*rhs)[k])
+				(*lhs)[k].Name = k
+				mgr.Listeners[k] = NewManagedListener((*lhs)[k], kubeConfig)
+				mgr.Listeners[k].Open()
+			}
 		}
 	}
 
 	// Add new items (not in L, existing)
 	for _, k := range ROnly {
 		log.Println("right only rhs[k]", k, (*rhs)[k])
+		(*rhs)[k].Name = k
 		(*lhs)[k] = NewPipeDefinition((*rhs)[k])
-		mgr.Listeners[k] = NewManagedListener((*rhs)[k], kubeConfig)
+		(*lhs)[k].Name = k
+		mgr.Listeners[k] = NewManagedListener((*lhs)[k], kubeConfig)
 		mgr.Listeners[k].Open()
 	}
-	mgr.LoadEndpoints()
+	// mgr.LoadEndpoints()
 }
 
 var complete = make(chan bool)
@@ -181,7 +186,7 @@ func Configure() {
 	if kubeConfig.Debug {
 		fmt.Printf("\n%v\n", string(jsonText))
 	}
-	kubeConfig.LoadKubeConfig()
+	kubeConfig.LoadCfg()
 	trace.Enabled = kubeConfig.Debug
 }
 

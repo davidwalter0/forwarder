@@ -1,15 +1,35 @@
-echo0:
+dashboard:
+  source: "0.0.0.0:9443"
+  # sink: "echo2.default:8080"
+  service: kubernetes-dashboard
+  namespace: kube-system
+  enableep: true
+  debug: true
+
+echo:
   source: "0.0.0.0:8888"
-  sink: "echo.default:8080"
-
-echo1:
-  source: "0.0.0.0:80"
-  service: echo
+  # sink: "echo2.default:8080"
+  service: echo2
   namespace: default
   enableep: true
+  debug: true
 
-echo2:
+echo0:
   source: "0.0.0.0:8889"
-  service: echo
+  sink: "echo2.default.svc.cluster.local:8888"
+  service: echo2
   namespace: default
-  enableep: true
+  # enableep: true
+  debug: true
+
+# echo1:
+#   source: "0.0.0.0:80"
+#   service: echo
+#   namespace: default
+#   enableep: true
+
+# echo2:
+#   source: "0.0.0.0:8889"
+#   service: echo
+#   namespace: default
+#   enableep: true
