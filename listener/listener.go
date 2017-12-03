@@ -100,7 +100,7 @@ func NewManagedListener(pipe *PipeDefinition, kubeConfig kubeconfig.Cfg) (ml *Ma
 			Kubernetes:     kubeConfig.Kubernetes,
 			MapAdd:         make(chan *Pipe, 3),
 			MapRm:          make(chan *Pipe, 3),
-			StopWatch:      make(chan bool, 1),
+			StopWatch:      make(chan bool, 3),
 			Debug:          pipe.Debug || kubeConfig.Debug,
 			Active:         0,
 		}
@@ -191,7 +191,7 @@ func (ml *ManagedListener) Insert(pipe *Pipe) {
 	pipe.State = Open
 	defer pipe.Monitor()()
 	ml.Pipes[pipe] = true
-	ml.Active = len(ml.Pipes)
+	ml.Active = uint64(len(ml.Pipes))
 }
 
 // Delete pipe from map of pipes in managed listener
@@ -200,7 +200,7 @@ func (ml *ManagedListener) Delete(pipe *Pipe) {
 	pipe.State = Closed
 	defer pipe.Monitor()()
 	delete(ml.Pipes, pipe)
-	ml.Active = len(ml.Pipes)
+	ml.Active = uint64(len(ml.Pipes))
 }
 
 // PipeMapHandler adds, removes, closes and single threads access to map list
