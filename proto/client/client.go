@@ -3,10 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	// "io"
 	"log"
-	// "math/rand"
-	// "time"
 
 	"crypto/tls"
 	"crypto/x509"
@@ -18,7 +15,6 @@ import (
 
 	pb "github.com/davidwalter0/forwarder/proto/pipe"
 	empty "github.com/golang/protobuf/ptypes/empty"
-	// ts "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 var (
@@ -32,9 +28,7 @@ var (
 
 // runPipeLogClient connects to pipe log service and monitors the logs
 func runPipeLogClient(client pb.WatcherClient) {
-	// fmt.Println("Begin again")
-	// defer fmt.Println("End again")
-	stream, err := client.Watch(context.Background(), &empty.Empty{}) // ignore *empty.Empty)
+	stream, err := client.Watch(context.Background(), &empty.Empty{})
 	if err != nil {
 		log.Fatalf("%v.RecordRoute(_) = _, %v", client, err)
 	}

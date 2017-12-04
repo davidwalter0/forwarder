@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto" ;
+import "github.com/golang/protobuf/ptypes/empty/empty.proto" ;
+
+package pipe;
+
+service Watcher {
+  // rpc PipelineConfig(google.protobuf.Empty) returns (PipelineConfigMapStruct) {}
+  // rpc WatchPipe(NamedPipe) returns (stream PipeLogMap) {}
+  rpc Watch(google.protobuf.Empty) returns (stream PipeLog) {}
+}
+
+message PipeLog {
+  string       Text     = 1 ;
+  PipeInfo     PipeInfo = 2 ;
+}
+
+enum LogLevel {
+  INFO   = 0;
+  DEBUG  = 1;
+  VERBOSE = 2;
+}
+// enum Mode {
+//   Point2Point   = 0;
+//   EndPointList  = 1;
+//   ServiceLookup = 2;
+// }
+enum Mode {
+  P2P     = 0;
+  EpList  = 1;
+  SvcLkup = 2;
+}
+
+message PipeInfo {
+  google.protobuf.Timestamp Timestamp  = 1 ;
+  string          Text                 = 2 ;
+  string          Name                 = 3 ;
+  string          Source               = 4 ;
+  string          Sink                 = 5 ;
+  bool            EnableEp             = 6 ;
+  string          Service              = 7 ;
+  string          Namespace            = 8 ;
+  bool            Debug                = 9 ;
+  Mode            Mode                 = 11;
+  repeated string Endpoints            = 10;
+}
+
+/*
+message NamedPipe {
+  string Name = 1;
+}
+
+message PipeLogMap {
+  map<string, PipeLog> LogMap = 1;
+}
+
+message Pipe {
+  enum Mode {
+    Point2Point   = 0;
+    EndPointList  = 1;
+    ServiceLookup = 2;
+  }
+  string  Name       = 1 ;
+  string  Source     = 2 ;
+  string  Sink       = 3 ;
+  bool    EnableEp   = 4 ;
+  string  Service    = 5 ;
+  string  Namespace  = 6 ;
+  bool    Debug      = 7 ;
+  Mode PipeType  = 9 ;
+  repeated string Endpoints  = 8 ;
+}
+*/
+
+/*
+message PipeList {
+  repeated Pipe pipes = 1;
+}
+*/

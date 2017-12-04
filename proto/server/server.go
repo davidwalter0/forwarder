@@ -1,33 +1,23 @@
-//go:generate protoc --proto_path=../pipe --proto_path=/go/src --go_out=../pipe ../pipe/pipe.proto
+//go:generate protoc --proto_path=pipe --proto_path=/go/src --go_out=plugins=grpc:pipe pipe/pipe.proto
 
-// Package main implements a simple gRPC server that demonstrates how to use gRPC-Go libraries
-// to perform unary, client streaming, server streaming and full duplex RPCs.
-//
-// It implements the route guide service whose definition can be found in routeguide/route_guide.proto.
 package main
 
 import (
-	// "encoding/json"
 	"flag"
 	"fmt"
-	// "io"
 	"io/ioutil"
 	"log"
-	// "math"
 	"net"
 	"reflect"
 	"time"
 
-	// "golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	"google.golang.org/grpc/credentials"
 
 	"crypto/tls"
 	"crypto/x509"
-	// "github.com/golang/protobuf/proto"
 
-	// "github.com/davidwalter0/forwarder/listener"
 	pb "github.com/davidwalter0/forwarder/proto/pipe"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	ts "github.com/golang/protobuf/ptypes/timestamp"
@@ -103,7 +93,7 @@ func MockPipeGen(which string) *pb.PipeLog {
 			Debug:     false,
 			Endpoints: []string{},
 			Mode:      pb.Mode_P2P,
-			When:      Now(),
+			Timestamp: Now(),
 		},
 	}
 }
@@ -123,39 +113,9 @@ func (l *WatcherServer) Watch(ignore *empty.Empty, stream pb.Watcher_WatchServer
 	for {
 		select {
 		case pipe := <-pipeGen:
-			// if err := stream.Send(pipe); err != nil && !grpcutil.IsClosedConnection(err) {
 			if err := stream.Send(pipe); err != nil {
-				// switch e := err.(type) {
-				// https://github.com/grpc/grpc-go/commit/a3592bda22af2816dac989ab6ccab42f45223455
-				//  	case transport.StreamError:
-				//  		return status.Error(e.Code, e.Desc)
-				//  	case transport.ConnectionError:
-				// -		return status.Error(codes.Internal, e.Desc)
-				// +		return status.Error(codes.Unavailable, e.Desc)
-				//  	default:
-				//  		switch err {
-				//  		case context.DeadlineExceeded:
-
-				switch err {
-				case context.DeadlineExceeded:
-					log.Println("return status.Error(codes.DeadlineExceeded, err.Error())")
-				case context.Canceled:
-					log.Println("return status.Error(codes.Canceled, err.Error())")
-				case ErrClientConnClosing:
-					log.Println("return status.Error(codes.FailedPrecondition, err.Error())")
-				}
-
 				log.Println("Watch:", err, err.Error(), reflect.TypeOf(err))
 			}
-
-			/*
-				// case tick := <-ticker.C:
-				case <-ticker.C:
-					// msg := fmt.Sprintf("%s %s %s %s %s %s %v %s %s", ml.Name, ml.Source, ml.Sink, ml.Service, ml.Namespace, ml.Debug, *ml.Endpoints, "active", ml.Active)
-					if err := stream.Send(MockPipeGen("tick")); err != nil {
-						log.Println(err)
-					}
-			*/
 		}
 	}
 }
