@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"crypto/tls"
 	"crypto/x509"
@@ -13,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	pb "github.com/davidwalter0/forwarder/proto/pipe"
+	pb "github.com/davidwalter0/forwarder/rpc/pipe"
 	empty "github.com/golang/protobuf/ptypes/empty"
 )
 
@@ -25,6 +27,21 @@ var (
 	serverAddr         = flag.String("server-addr", "127.0.0.1:10000", "The server address in the format of host:port")
 	serverHostOverride = flag.String("server-host-override", "example.com", "The server name use to verify the hostname returned by TLS handshake")
 )
+
+// Build info text
+var Build string
+
+// Commit git string
+var Commit string
+
+// Version semver string
+var Version string
+
+func init() {
+	array := strings.Split(os.Args[0], "/")
+	me := array[len(array)-1]
+	fmt.Printf("%s: Version %s version build %s commit %s\n", me, Version, Build, Commit)
+}
 
 // runPipeLogClient connects to pipe log service and monitors the logs
 func runPipeLogClient(client pb.WatcherClient) {

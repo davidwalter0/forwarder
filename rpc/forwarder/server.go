@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -18,9 +20,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 
-	pb "github.com/davidwalter0/forwarder/proto/pipe"
+	pb "github.com/davidwalter0/forwarder/rpc/pipe"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	ts "github.com/golang/protobuf/ptypes/timestamp"
+
+	"github.com/davidwalter0/forwarder/listener"
+	mgmt "github.com/davidwalter0/forwarder/mgr"
+	"github.com/davidwalter0/forwarder/pipe"
+	"github.com/davidwalter0/forwarder/share"
+	"github.com/davidwalter0/forwarder/tracer"
 )
 
 var (
@@ -31,6 +39,21 @@ var (
 	jsonDBFile = flag.String("json_db_file", "testdata/route_guide_db.json", "A json file containing a list of features")
 	serverAddr = flag.String("server-addr", "0.0.0.0:10000", "The server address in the format of host:port")
 )
+
+// Build info text
+var Build string
+
+// Commit git string
+var Commit string
+
+// Version semver string
+var Version string
+
+func init() {
+	array := strings.Split(os.Args[0], "/")
+	me := array[len(array)-1]
+	fmt.Printf("%s: Version %s version build %s commit %s\n", me, Version, Build, Commit)
+}
 
 // NewWatcherServer grpc code
 func NewWatcherServer() *WatcherServer {
@@ -82,7 +105,8 @@ func Now() *ts.Timestamp {
 // MockPipeGen create an example pipe
 func MockPipeGen(which string) *pb.PipeLog {
 	return &pb.PipeLog{
-		Text: which,
+		Timestamp: Now(),
+		Text:      which,
 		PipeInfo: &pb.PipeInfo{
 			Name:      "Example",
 			Source:    "0.0.0.0:80",
@@ -93,16 +117,16 @@ func MockPipeGen(which string) *pb.PipeLog {
 			Debug:     false,
 			Endpoints: []string{},
 			Mode:      pb.Mode_P2P,
-			Timestamp: Now(),
 		},
 	}
 }
 
+/*
 // Generator create
 func Generator() {
 	for {
 		pipeGen <- MockPipeGen("Gen")
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 30)
 	}
 }
 
@@ -119,9 +143,50 @@ func (l *WatcherServer) Watch(ignore *empty.Empty, stream pb.Watcher_WatchServer
 		}
 	}
 }
+*/
+func ConvertAndSend(p *pipe.Definition, stream pb.Watcher_WatchServer) {
+	defer trace.Tracer.ScopedTrace()()
+	if err := stream.Send(pb.Pipe2PipeLog(p)); err != nil {
+		log.Println("Watch: Pipe", err, err.Error(), reflect.TypeOf(err))
+	}
+}
+
+// Watch status manager to enable distributed observation via rpc
+func (l *WatcherServer) Watch(ignore *empty.Empty, stream pb.Watcher_WatchServer) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	// go Generator()
+	for {
+		select {
+		case obj, ok := <-share.Queue.Chan():
+			if ok {
+				switch o := obj.(type) {
+				case *pipe.Definition:
+					ConvertAndSend(o, stream)
+				case pipe.Definition:
+					ConvertAndSend(&o, stream)
+				}
+			} else {
+				log.Println("Unable to read channel")
+			}
+		}
+	}
+}
+
+// ManagedListener control service listening socket + active connections
+type ManagedListener listener.ManagedListener
+
+var complete = make(chan bool)
+var mgr *mgmt.Mgr = mgmt.NewMgr()
+
+// retries number of attempts
+var retries = 3
+
+// logReloadTimeout in seconds
+var logReloadTimeout = time.Duration(600)
 
 func main() {
-	flag.Parse()
+	// flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s", *serverAddr))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -130,9 +195,13 @@ func main() {
 	if *withTLS {
 		opts = append(opts, loadCreds())
 	}
-	grpcServer := grpc.NewServer(opts...)
-	pb.RegisterWatcherServer(grpcServer, NewWatcherServer())
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatal(err)
-	}
+	go func() {
+		grpcServer := grpc.NewServer(opts...)
+		pb.RegisterWatcherServer(grpcServer, NewWatcherServer())
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	mgr.Run()
+	<-complete
 }

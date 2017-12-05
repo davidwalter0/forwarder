@@ -1,0 +1,11 @@
+dashboard:
+  source: "0.0.0.0:8999"
+  # sink: ":8888"
+  sink: ":8081"
+  debug: true
+
+ssh:
+  source: "strange:2200"
+  # sink: ":8888"
+  sink: "strange:22"
+  debug: true

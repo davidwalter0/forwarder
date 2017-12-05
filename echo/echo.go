@@ -7,14 +7,30 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"time"
 
 	"encoding/json"
+	"github.com/davidwalter0/go-cfg"
 	"github.com/davidwalter0/transform"
 	yaml "gopkg.in/yaml.v2"
 )
 
+type Cfg struct {
+	Address string `json:"address" help:"host:port on which to serve" default:":8888"`
+}
+
+var c Cfg
+
 type Handler struct{}
+
+func init() {
+	if err := cfg.Parse(&c); err != nil {
+		fmt.Fprintf(os.Stderr, "Config failed %v", err)
+		os.Exit(1)
+	}
+
+}
 
 func (handler Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
@@ -46,7 +62,7 @@ func main() {
 	}
 	fmt.Println(ip)
 	IP = ip
-	http.ListenAndServe(":8888", Handler{})
+	http.ListenAndServe(c.Address, Handler{})
 }
 
 // Yamlify object to yaml string

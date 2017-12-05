@@ -11,6 +11,7 @@ import (
 
 	"github.com/davidwalter0/forwarder/kubeconfig"
 	"github.com/davidwalter0/forwarder/listener"
+	"github.com/davidwalter0/forwarder/pipe"
 	"github.com/davidwalter0/forwarder/set"
 	"github.com/davidwalter0/forwarder/tracer"
 	"github.com/davidwalter0/go-cfg"
@@ -43,15 +44,15 @@ var Version string // = strings.Split(string(Load(".version")), "=")[1]
 type ManagedListener listener.ManagedListener
 
 // PipeDefinition for service source / sink
-// type PipeDefinitions map[string]*listener.PipeDefinition
+// type PipeDefinitions map[string]*pipe.Definition
 
 // NewManagedListener object create
 var NewManagedListener = listener.NewManagedListener
 
-// NewPipeDefinition object create
-var NewPipeDefinition = listener.NewPipeDefinition
+// NewFromDefinition object create
+var NewFromDefinition = pipe.NewFromDefinition
 
-var pipeDefs *map[string]*listener.PipeDefinition
+var pipeDefs *map[string]*pipe.Definition
 
 // Mgr management info for listeners
 type Mgr struct {
@@ -88,7 +89,7 @@ func (mgr *Mgr) Run() {
 	Configure()
 	// defer trace.Tracer.ScopedTrace()()
 	{
-		var m = make(map[string]*listener.PipeDefinition)
+		var m = make(map[string]*pipe.Definition)
 		mgr.Merge(&m)
 	}
 	go Watch()
@@ -115,7 +116,7 @@ func (mgr *Mgr) Run() {
 }
 
 // Merge the kubeConfiguration of pipeDefs
-func (mgr *Mgr) Merge(lhs *map[string]*listener.PipeDefinition) {
+func (mgr *Mgr) Merge(lhs *map[string]*pipe.Definition) {
 	defer mgr.Mutex.MonitorTrace("Merge")()
 	defer trace.Tracer.ScopedTrace()()
 	rhs := LoadEndPts()
@@ -138,7 +139,7 @@ func (mgr *Mgr) Merge(lhs *map[string]*listener.PipeDefinition) {
 				delete((*lhs), k)
 				delete(mgr.Listeners, k)
 				(*rhs)[k].Name = k
-				(*lhs)[k] = NewPipeDefinition((*rhs)[k])
+				(*lhs)[k] = NewFromDefinition((*rhs)[k])
 				(*lhs)[k].Name = k
 				mgr.Listeners[k] = NewManagedListener((*lhs)[k], kubeConfig)
 				mgr.Listeners[k].Open()
@@ -150,7 +151,7 @@ func (mgr *Mgr) Merge(lhs *map[string]*listener.PipeDefinition) {
 	for _, k := range ROnly {
 		log.Println("right only rhs[k]", k, (*rhs)[k])
 		(*rhs)[k].Name = k
-		(*lhs)[k] = NewPipeDefinition((*rhs)[k])
+		(*lhs)[k] = NewFromDefinition((*rhs)[k])
 		(*lhs)[k].Name = k
 		mgr.Listeners[k] = NewManagedListener((*lhs)[k], kubeConfig)
 		mgr.Listeners[k].Open()
@@ -191,8 +192,8 @@ func Configure() {
 }
 
 // LoadEndPts load from text into a pipeDefs object
-func LoadEndPts() (e *map[string]*listener.PipeDefinition) {
-	var m = make(map[string]*listener.PipeDefinition)
+func LoadEndPts() (e *map[string]*pipe.Definition) {
+	var m = make(map[string]*pipe.Definition)
 	e = &m
 	var text = Load(kubeConfig.File)
 	var err = yaml.Unmarshal(text, e)

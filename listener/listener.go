@@ -2,24 +2,20 @@ package listener
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/davidwalter0/forwarder/kubeconfig"
+	"github.com/davidwalter0/forwarder/pipe"
+	"github.com/davidwalter0/forwarder/share"
 	"github.com/davidwalter0/forwarder/tracer"
 	"github.com/davidwalter0/go-mutex"
 )
 
 var retries = 3
-
-// func init() {
-// 	trace.Tracer.Detailed(true).Enable(true)
-// }
 
 // Listen open listener on address
 func Listen(address string) (listener net.Listener) {
@@ -39,110 +35,40 @@ func Listen(address string) (listener net.Listener) {
 	return
 }
 
-// PipeDefinition maps source to sink
-type PipeDefinition struct {
-	Name      string `json:"name"      help:"map key"`
-	Source    string `json:"source"    help:"source ingress point host:port"`
-	Sink      string `json:"sink"      help:"sink service point   host:port"`
-	Endpoints *EP    `json:"endpoints" help:"endpoints (sinks) k8s api / config"`
-	EnableEp  bool   `json:"enable-ep" help:"enable endpoints from service"`
-	Service   string `json:"service"   help:"service name"`
-	Namespace string `json:"namespace" help:"service namespace"`
-	Debug     bool   `json:"debug"     help:"enable debug for this pipe"`
-}
-
-// NewPipeDefinition create and initialize a PipeDefinition
-func NewPipeDefinition(pipe *PipeDefinition) (pipeDefinition *PipeDefinition) {
-	if pipe != nil {
-		defer trace.Tracer.ScopedTrace()()
-		pipeDefinition = &PipeDefinition{
-			// Name is the key of yaml map
-			// Name:      name,
-			Source:    pipe.Source,
-			Sink:      pipe.Sink,
-			EnableEp:  pipe.EnableEp,
-			Service:   pipe.Service,
-			Namespace: pipe.Namespace,
-			Debug:     pipe.Debug,
-		}
-	}
-	return
-}
-
-// PipeDefinitions from text description in yaml
-type PipeDefinitions map[string]*PipeDefinition
-
 // ManagedListener and it's dependent objects
 type ManagedListener struct {
-	PipeDefinition
-	Listener   net.Listener   `json:"-"`
-	Pipes      map[*Pipe]bool `json:"-"`
-	Mutex      *mutex.Mutex   `json:"-"`
-	Wg         sync.WaitGroup `json:"-"`
-	Kubernetes bool           `json:"-"`
-	Debug      bool           `json:"-"`
+	pipe.Definition
+	Listener   net.Listener        `json:"-"`
+	Pipes      map[*pipe.Pipe]bool `json:"-"`
+	Mutex      *mutex.Mutex        `json:"-"`
+	Wg         sync.WaitGroup      `json:"-"`
+	Kubernetes bool                `json:"-"`
+	Debug      bool                `json:"-"`
 	n          uint64
-	MapAdd     chan *Pipe
-	MapRm      chan *Pipe
+	MapAdd     chan *pipe.Pipe
+	MapRm      chan *pipe.Pipe
 	StopWatch  chan bool
 	Active     uint64
 }
 
 // NewManagedListener create and populate a ManagedListener
-func NewManagedListener(pipe *PipeDefinition, kubeConfig kubeconfig.Cfg) (ml *ManagedListener) {
-	if pipe != nil {
+func NewManagedListener(pipedef *pipe.Definition, kubeConfig kubeconfig.Cfg) (ml *ManagedListener) {
+	if pipedef != nil {
 		defer trace.Tracer.ScopedTrace()()
 		ml = &ManagedListener{
-			PipeDefinition: *pipe,
-			Listener:       Listen(pipe.Source),
-			Pipes:          make(map[*Pipe]bool),
-			Mutex:          &mutex.Mutex{},
-			Kubernetes:     kubeConfig.Kubernetes,
-			MapAdd:         make(chan *Pipe, 3),
-			MapRm:          make(chan *Pipe, 3),
-			StopWatch:      make(chan bool, 3),
-			Debug:          pipe.Debug || kubeConfig.Debug,
-			Active:         0,
+			Definition: *pipedef,
+			Listener:   Listen(pipedef.Source),
+			Pipes:      make(map[*pipe.Pipe]bool),
+			Mutex:      &mutex.Mutex{},
+			Kubernetes: kubeConfig.Kubernetes,
+			MapAdd:     make(chan *pipe.Pipe, 3),
+			MapRm:      make(chan *pipe.Pipe, 3),
+			StopWatch:  make(chan bool, 3),
+			Debug:      pipedef.Debug || kubeConfig.Debug,
+			Active:     0,
 		}
 	}
 	return
-}
-
-// NewPipe creates a Pipe and returns a pointer to the same
-func NewPipe(name string, ml *ManagedListener, source, sink net.Conn) (pipe *Pipe) {
-	if ml != nil {
-		defer ml.Monitor()()
-		pipe = &Pipe{Name: name, SourceConn: source, SinkConn: sink, MapRm: ml.MapRm, Mutex: ml.Mutex}
-		ml.MapAdd <- pipe
-	}
-	return
-}
-
-const (
-	// Open : State
-	Open = iota
-	// Closed : State
-	Closed
-)
-
-// Pipe a connection initiated by the return from listen and the
-// up/down stream host:port pairs
-type Pipe struct {
-	Name       string
-	SourceConn net.Conn
-	SinkConn   net.Conn
-	MapRm      chan *Pipe
-	State      uint64
-	Mutex      *mutex.Mutex
-}
-
-// Monitor lock link into
-func (pipe *Pipe) Monitor(args ...interface{}) func() {
-	if pipe != nil {
-		defer trace.Tracer.ScopedTrace(args...)()
-		return pipe.Mutex.MonitorTrace(args...)
-	}
-	return func() {}
 }
 
 // Monitor for this ManagedListener
@@ -154,50 +80,19 @@ func (ml *ManagedListener) Monitor(args ...interface{}) func() {
 	return func() {}
 }
 
-// Connect opens a link between source and sink
-func (pipe *Pipe) Connect() {
-	if pipe != nil {
-		defer trace.Tracer.ScopedTrace()()
-		go func() {
-			defer trace.Tracer.ScopedTrace()()
-			defer pipe.Close()
-			io.Copy(pipe.SinkConn, pipe.SourceConn)
-		}()
-		go func() {
-			defer trace.Tracer.ScopedTrace()()
-			defer pipe.Close()
-			io.Copy(pipe.SourceConn, pipe.SinkConn)
-		}()
-	}
-}
-
-// Close a link between source and sink
-func (pipe *Pipe) Close() {
-	if pipe != nil {
-		defer trace.Tracer.ScopedTrace()()
-		defer pipe.Monitor()()
-		if pipe.State == Open {
-			pipe.MapRm <- pipe
-			pipe.State = Closed
-			pipe.SinkConn.Close()
-			pipe.SourceConn.Close()
-		}
-	}
-}
-
 // Insert pipe to map of pipes in managed listener
-func (ml *ManagedListener) Insert(pipe *Pipe) {
+func (ml *ManagedListener) Insert(pipe *pipe.Pipe) {
 	defer trace.Tracer.ScopedTrace("MapAdd", *pipe)()
-	pipe.State = Open
+	pipe.State = share.Open
 	defer pipe.Monitor()()
 	ml.Pipes[pipe] = true
 	ml.Active = uint64(len(ml.Pipes))
 }
 
 // Delete pipe from map of pipes in managed listener
-func (ml *ManagedListener) Delete(pipe *Pipe) {
+func (ml *ManagedListener) Delete(pipe *pipe.Pipe) {
 	defer trace.Tracer.ScopedTrace("MapRm", *pipe)()
-	pipe.State = Closed
+	pipe.State = share.Closed
 	defer pipe.Monitor()()
 	delete(ml.Pipes, pipe)
 	ml.Active = uint64(len(ml.Pipes))
@@ -226,30 +121,11 @@ func (ml *ManagedListener) Open() {
 	}
 }
 
-// EP slice of endpoints
-type EP []string
-
-// Equal compare two endpoint arrays for equality
-func (ep *EP) Equal(rhs *EP) (rc bool) {
-	if ep != nil && rhs != nil && len(*ep) == len(*rhs) {
-		sort.Strings(*ep)
-		sort.Strings(*rhs)
-		for i, v := range *ep {
-			if v != (*rhs)[i] {
-				return
-			}
-		}
-	} else {
-		return
-	}
-	return true
-}
-
 // LoadEndpoints queries the service name for endpoints
 func (ml *ManagedListener) LoadEndpoints() {
 	if ml != nil {
 		defer ml.Monitor()()
-		var ep EP = EP{}
+		var ep = pipe.EP{}
 		if ep = kubeconfig.Endpoints(ml.Service, ml.Namespace); !ep.Equal(ml.Endpoints) {
 			ml.Endpoints = &ep
 		}
@@ -290,9 +166,8 @@ func (ml *ManagedListener) StopWatchNotify() {
 // EpWatcher check for endpoints
 func (ml *ManagedListener) EpWatcher() {
 	if ml != nil {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(share.TickDelay * time.Second)
 		defer ticker.Stop()
-
 		for {
 			select {
 			case <-ml.StopWatch:
@@ -326,7 +201,7 @@ func (ml *ManagedListener) Listening() {
 			log.Printf("Connection failed: %v\n", err)
 			break
 		}
-		var pipe = NewPipe(ml.Name, ml, SourceConn, SinkConn)
+		var pipe = pipe.NewPipe(ml.Name, ml.MapAdd, ml.MapRm, ml.Mutex, SourceConn, SinkConn, ml.Definition)
 		go pipe.Connect()
 	}
 }

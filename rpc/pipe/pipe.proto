@@ -12,8 +12,9 @@ service Watcher {
 }
 
 message PipeLog {
-  string       Text     = 1 ;
-  PipeInfo     PipeInfo = 2 ;
+  google.protobuf.Timestamp Timestamp  = 1 ;
+  string       Text     = 2 ;
+  PipeInfo     PipeInfo = 3 ;
 }
 
 enum LogLevel {
@@ -21,11 +22,13 @@ enum LogLevel {
   DEBUG  = 1;
   VERBOSE = 2;
 }
+
 // enum Mode {
 //   Point2Point   = 0;
 //   EndPointList  = 1;
 //   ServiceLookup = 2;
 // }
+
 enum Mode {
   P2P     = 0;
   EpList  = 1;
@@ -33,17 +36,15 @@ enum Mode {
 }
 
 message PipeInfo {
-  google.protobuf.Timestamp Timestamp  = 1 ;
-  string          Text                 = 2 ;
-  string          Name                 = 3 ;
-  string          Source               = 4 ;
-  string          Sink                 = 5 ;
-  bool            EnableEp             = 6 ;
-  string          Service              = 7 ;
-  string          Namespace            = 8 ;
-  bool            Debug                = 9 ;
-  Mode            Mode                 = 11;
-  repeated string Endpoints            = 10;
+  string          Name                 = 1 ;
+  string          Source               = 2 ;
+  string          Sink                 = 3 ;
+  bool            EnableEp             = 4 ;
+  string          Service              = 5 ;
+  string          Namespace            = 6 ;
+  bool            Debug                = 7 ;
+  Mode            Mode                 = 8 ;
+  repeated string Endpoints            = 9 ;
 }
 
 /*

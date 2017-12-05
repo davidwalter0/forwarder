@@ -40,7 +40,7 @@ var Build string
 var Commit string
 
 // Version semver string
-var Version string // = strings.Split(string(Load(".version")), "=")[1]
+var Version string
 
 // ManagedListener control service listening socket + active connections
 type ManagedListener listener.ManagedListener
