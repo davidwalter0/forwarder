@@ -1,20 +1,18 @@
-// mgr owns the listener logic and configuration watch
+// Package mgr manages listeners for each forwarding pipe definition
 package mgr
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"time"
 
-	"github.com/davidwalter0/forwarder/kubeconfig"
 	"github.com/davidwalter0/forwarder/listener"
 	"github.com/davidwalter0/forwarder/pipe"
 	"github.com/davidwalter0/forwarder/set"
+	"github.com/davidwalter0/forwarder/share"
 	"github.com/davidwalter0/forwarder/tracer"
-	"github.com/davidwalter0/go-cfg"
 	"github.com/davidwalter0/go-mutex"
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v2"
@@ -31,8 +29,6 @@ var Build string
 
 // Commit git string
 var Commit string
-
-var kubeConfig kubeconfig.Cfg
 
 var reload = make(chan os.FileInfo)
 var delta = time.Duration(5)
@@ -58,11 +54,16 @@ var pipeDefs *map[string]*pipe.Definition
 type Mgr struct {
 	Listeners map[string]*listener.ManagedListener
 	Mutex     *mutex.Mutex
+	EnvCfg    *share.ServerCfg
 }
 
 // NewMgr create a new Mgr
-func NewMgr() *Mgr {
-	return &Mgr{Listeners: make(map[string]*listener.ManagedListener), Mutex: &mutex.Mutex{}}
+func NewMgr(EnvCfg *share.ServerCfg) *Mgr {
+	return &Mgr{
+		Listeners: make(map[string]*listener.ManagedListener),
+		Mutex:     &mutex.Mutex{},
+		EnvCfg:    EnvCfg,
+	}
 }
 
 // Monitor lifts mutex deferable lock to Mgr object
@@ -71,43 +72,28 @@ func (mgr *Mgr) Monitor() func() {
 	return mgr.Mutex.MonitorTrace()
 }
 
-/*
-// Monitor lifts mutex deferable lock to Mgr object
-func (mgr *Mgr) LoadEndpoints() {
-	for k, ml := range mgr.Listeners {
-		if ml != nil {
-			if ml.EnableEp {
-				ml.LoadEndpoints()
-				log.Println("mgr", k, ml.Service, ml.Namespace, ml.Endpoints, ml.Source, ml.Sink)
-			}
-		}
-	}
-}
-*/
 // Run primary processing loop
 func (mgr *Mgr) Run() {
-	Configure()
-	// defer trace.Tracer.ScopedTrace()()
+	var EnvCfg = mgr.EnvCfg
 	{
 		var m = make(map[string]*pipe.Definition)
 		mgr.Merge(&m)
 	}
-	go Watch()
-	var pipeDefs = LoadEndPts()
+	go mgr.Watch()
+	var pipeDefs = mgr.LoadEndPts()
 	for {
 		{
-			if kubeConfig.Debug {
+			if EnvCfg.Debug {
 				log.Println("Loop in Run()")
 			}
 			select {
 			case stat := <-reload:
-				// defer trace.Tracer.Enable(trace.Enabled).ScopedTrace(fmt.Sprintf("Reload %v %v", stat.Name(), stat.ModTime()))()
-				if kubeConfig.Debug {
+				if EnvCfg.Debug {
 					log.Printf("Reload %v %v\n", stat.Name(), stat.ModTime())
 				}
 				mgr.Merge(pipeDefs)
 			case delay := <-time.After(time.Second * logReloadTimeout):
-				if kubeConfig.Debug {
+				if EnvCfg.Debug {
 					log.Printf("Reload timed out after %d seconds %v\n", logReloadTimeout, delay)
 				}
 			}
@@ -115,13 +101,14 @@ func (mgr *Mgr) Run() {
 	}
 }
 
-// Merge the kubeConfiguration of pipeDefs
+// Merge the EnvCfguration of pipeDefs
 func (mgr *Mgr) Merge(lhs *map[string]*pipe.Definition) {
 	defer mgr.Mutex.MonitorTrace("Merge")()
 	defer trace.Tracer.ScopedTrace()()
-	rhs := LoadEndPts()
+	var EnvCfg = mgr.EnvCfg
+	rhs := mgr.LoadEndPts()
 	var LOnly, Common, ROnly = set.Difference(lhs, rhs)
-	// Not Common or in the right hand (new kubeConfig) set, are now
+	// Not Common or in the right hand (new EnvCfg) set, are now
 	// vestiges of the prior (lhs) set
 	for _, k := range LOnly {
 		log.Println("closing lhs[k]", k, (*lhs)[k])
@@ -130,7 +117,7 @@ func (mgr *Mgr) Merge(lhs *map[string]*pipe.Definition) {
 		delete(mgr.Listeners, k)
 	}
 
-	// If Common names were updated, replace with new kubeConfig
+	// If Common names were updated, replace with new EnvCfg
 	for _, k := range Common {
 		log.Println("common lhs[k]", k, (*lhs)[k], "equal", !(*lhs)[k].Equal((*rhs)[k]))
 		if !(*lhs)[k].Equal((*rhs)[k]) {
@@ -141,7 +128,7 @@ func (mgr *Mgr) Merge(lhs *map[string]*pipe.Definition) {
 				(*rhs)[k].Name = k
 				(*lhs)[k] = NewFromDefinition((*rhs)[k])
 				(*lhs)[k].Name = k
-				mgr.Listeners[k] = NewManagedListener((*lhs)[k], kubeConfig)
+				mgr.Listeners[k] = NewManagedListener((*lhs)[k], EnvCfg)
 				mgr.Listeners[k].Open()
 			}
 		}
@@ -153,7 +140,7 @@ func (mgr *Mgr) Merge(lhs *map[string]*pipe.Definition) {
 		(*rhs)[k].Name = k
 		(*lhs)[k] = NewFromDefinition((*rhs)[k])
 		(*lhs)[k].Name = k
-		mgr.Listeners[k] = NewManagedListener((*lhs)[k], kubeConfig)
+		mgr.Listeners[k] = NewManagedListener((*lhs)[k], EnvCfg)
 		mgr.Listeners[k].Open()
 	}
 	// mgr.LoadEndpoints()
@@ -167,35 +154,11 @@ func CheckInCluster() bool {
 	return len(os.Getenv("KUBERNETES_PORT")) > 0
 }
 
-// Configure from environment variables or command line flags and load
-// the kubeConfiguration file endPtDefing pairs.
-func Configure() {
-	var err error
-
-	if err = cfg.Process("", &kubeConfig); err != nil {
-		log.Fatalf("Error: %v", err)
-	}
-
-	if len(kubeConfig.File) == 0 {
-		fmt.Println("Error: kubeConfiguration file not set")
-		cfg.Usage()
-		os.Exit(1)
-	}
-
-	var jsonText []byte
-	jsonText, _ = json.MarshalIndent(&kubeConfig, "", "  ")
-	if kubeConfig.Debug {
-		fmt.Printf("\n%v\n", string(jsonText))
-	}
-	kubeConfig.LoadCfg()
-	trace.Enabled = kubeConfig.Debug
-}
-
 // LoadEndPts load from text into a pipeDefs object
-func LoadEndPts() (e *map[string]*pipe.Definition) {
+func (mgr *Mgr) LoadEndPts() (e *map[string]*pipe.Definition) {
 	var m = make(map[string]*pipe.Definition)
 	e = &m
-	var text = Load(kubeConfig.File)
+	var text = Load(mgr.EnvCfg.File)
 	var err = yaml.Unmarshal(text, e)
 	if err != nil {
 		log.Fatalf("error: %v", err)
@@ -226,7 +189,7 @@ func Load(filename string) []byte {
 }
 
 // Watch reports file change
-func Watch() {
+func (mgr *Mgr) Watch() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -234,15 +197,15 @@ func Watch() {
 	go func() {
 		for {
 			// Secret update -> REMOVE event, invalidates the watch,
-			// reassert
-			err = watcher.Add(kubeConfig.File)
+			// reacquire by recreating
+			err = watcher.Add(mgr.EnvCfg.File)
 			if err != nil {
 				log.Println(err)
 				time.Sleep(time.Second * 3)
 			} else {
 				select {
 				case event := <-watcher.Events:
-					stat, err := os.Stat(kubeConfig.File)
+					stat, err := os.Stat(mgr.EnvCfg.File)
 					reload <- stat
 					msg := fmt.Sprintf("Reload %v %v", stat.Name(), stat.ModTime())
 					if err == nil {
@@ -267,7 +230,7 @@ func Watch() {
 						log.Println("CHMOD", event.Name, msg)
 					}
 				case err := <-watcher.Errors:
-					stat, e := os.Stat(kubeConfig.File)
+					stat, e := os.Stat(mgr.EnvCfg.File)
 					msg := fmt.Sprintf("watch error %v %v %v %v", err, stat.Name(), stat.ModTime(), e)
 					log.Println("error:", msg)
 				}

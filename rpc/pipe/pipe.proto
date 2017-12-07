@@ -1,20 +1,25 @@
 syntax = "proto3";
 
 import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto" ;
-import "github.com/golang/protobuf/ptypes/empty/empty.proto" ;
+import "github.com/golang/protobuf/ptypes/empty/empty.proto";
 
 package pipe;
 
 service Watcher {
   // rpc PipelineConfig(google.protobuf.Empty) returns (PipelineConfigMapStruct) {}
   // rpc WatchPipe(NamedPipe) returns (stream PipeLogMap) {}
+  rpc GetPipe(PipeName) returns (PipeInfo) {}
   rpc Watch(google.protobuf.Empty) returns (stream PipeLog) {}
+}
+
+message PipeName {
+  string          Name                 = 1 ;
 }
 
 message PipeLog {
   google.protobuf.Timestamp Timestamp  = 1 ;
-  string       Text     = 2 ;
-  PipeInfo     PipeInfo = 3 ;
+  string         Text                  = 2 ;
+  PipeInfo       PipeInfo              = 3 ;
 }
 
 enum LogLevel {
@@ -47,6 +52,11 @@ message PipeInfo {
   repeated string Endpoints            = 9 ;
 }
 
+
+message PipeList {
+  repeated PipeInfo pipes = 1;
+}
+
 /*
 message NamedPipe {
   string Name = 1;
@@ -71,11 +81,5 @@ message Pipe {
   bool    Debug      = 7 ;
   Mode PipeType  = 9 ;
   repeated string Endpoints  = 8 ;
-}
-*/
-
-/*
-message PipeList {
-  repeated Pipe pipes = 1;
 }
 */

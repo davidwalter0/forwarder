@@ -2,7 +2,7 @@ targets:=bin/forwarder-server bin/forwarder-client bin/forwarder-rpc
 deps:=pipe/pipe.go
 generated:=$(patsubst pipe/%.proto,pipe/%.pb.go,$(wildcard pipe/*.proto))
 
-.PHONY: server.bin client.bin
+.PHONY: server.bin client.bin forwarder.bin
 
 all: bin proto build
 
@@ -24,13 +24,13 @@ pipe/%.pb.go: pipe/%.proto
 bin/%: %/%.go $(generated) $(deps) 
 	go build -tags netgo -ldflags '-w -s' -o $@ $^
 
-bin/forwarder-server: server/server.go $(generated) $(deps) Makefile
+bin/forwarder-server: server/main/server.go $(generated) $(deps) Makefile
 	echo $@ $^
 	. ../.version; \
 	args="-s -w -X main.Version=$${version} -X main.Build=$$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit=$$(git log --format=%h-%aI -n1)";	\
 	go build -tags netgo -ldflags "$${args}" -o $@ $<
 
-bin/forwarder-client: client/client.go  $(generated) $(deps) Makefile
+bin/forwarder-client: client/main/client.go  $(generated) $(deps) Makefile
 	echo $@ $^
 	. ../.version; \
 	args="-s -w -X main.Version=$${version} -X main.Build=$$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit=$$(git log --format=%h-%aI -n1)";	\

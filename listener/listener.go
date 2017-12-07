@@ -52,7 +52,7 @@ type ManagedListener struct {
 }
 
 // NewManagedListener create and populate a ManagedListener
-func NewManagedListener(pipedef *pipe.Definition, kubeConfig kubeconfig.Cfg) (ml *ManagedListener) {
+func NewManagedListener(pipedef *pipe.Definition, envCfg *share.ServerCfg) (ml *ManagedListener) {
 	if pipedef != nil {
 		defer trace.Tracer.ScopedTrace()()
 		ml = &ManagedListener{
@@ -60,11 +60,11 @@ func NewManagedListener(pipedef *pipe.Definition, kubeConfig kubeconfig.Cfg) (ml
 			Listener:   Listen(pipedef.Source),
 			Pipes:      make(map[*pipe.Pipe]bool),
 			Mutex:      &mutex.Mutex{},
-			Kubernetes: kubeConfig.Kubernetes,
+			Kubernetes: envCfg.Kubernetes,
 			MapAdd:     make(chan *pipe.Pipe, 3),
 			MapRm:      make(chan *pipe.Pipe, 3),
 			StopWatch:  make(chan bool, 3),
-			Debug:      pipedef.Debug || kubeConfig.Debug,
+			Debug:      pipedef.Debug || envCfg.Debug,
 			Active:     0,
 		}
 	}

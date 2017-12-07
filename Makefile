@@ -70,7 +70,8 @@ apply: yaml
 	$(kubectl) apply -f daemonset.yaml
 
 clean:
-	@if [[ -x "$(target)" ]]; then rm -f $(target); fi
+	@if [[ -x "$(target)" ]]; then rm -f $(target) bin/echo; fi
+	@if [[ -x "bin/echo" ]]; then rm -f bin/echo; fi
 	@if [[ -d "bin" ]]; then rmdir bin; fi
 
 test:

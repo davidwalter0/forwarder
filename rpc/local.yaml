@@ -1,4 +1,4 @@
-dashboard:
+echo:
   source: "0.0.0.0:8999"
   # sink: ":8888"
   sink: ":8081"
@@ -7,5 +7,10 @@ dashboard:
 ssh:
   source: "strange:2200"
   # sink: ":8888"
+  sink: "strange:22"
+  debug: true
+
+ssh2:
+  source: "strange:2201"
   sink: "strange:22"
   debug: true

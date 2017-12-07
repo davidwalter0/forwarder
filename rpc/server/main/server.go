@@ -8,13 +8,12 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc"
 
 	mgmt "github.com/davidwalter0/forwarder/mgr"
 	pb "github.com/davidwalter0/forwarder/rpc/pipe"
-	impl "github.com/davidwalter0/forwarder/rpc/server/impl"
+	"github.com/davidwalter0/forwarder/rpc/server/impl"
 	"github.com/davidwalter0/forwarder/share"
 )
 
@@ -34,34 +33,25 @@ func init() {
 }
 
 var complete = make(chan bool)
-var envCfg = &share.ServerCfg{}
+var envCfg = share.NewServerCfg()
 var mgr = mgmt.NewMgr(envCfg)
-
-// retries number of attempts
-var retries = 3
-
-// logReloadTimeout in seconds
-var logReloadTimeout = time.Duration(time.Second * 600)
 
 func main() {
 	envCfg.Read()
+
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s", envCfg.ServerAddr))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	var opts []grpc.ServerOption
 	if envCfg.TLS {
-		creds := envCfg.LoadServerCreds()
-		opts = append(opts, creds)
+		opts = append(opts, envCfg.LoadServerCreds())
 	}
-
-	go func() {
-		grpcServer := grpc.NewServer(opts...)
-		pb.RegisterWatcherServer(grpcServer, impl.NewWatcherServer(mgr))
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	grpcServer := grpc.NewServer(opts...)
+	pb.RegisterWatcherServer(grpcServer, impl.NewWatcherServer(mgr))
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatal(err)
+	}
 	mgr.Run()
 	<-complete
 }

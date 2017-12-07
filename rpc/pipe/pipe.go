@@ -75,8 +75,8 @@ func (l *PipeLog) Definition() *pipe.Definition {
 }
 
 // Pipe2PipeLog from a PipeLog
-func Pipe2PipeLog(p *pipe.Definition) *PipeLog {
-	var pipeInfo = &PipeInfo{
+func Pipe2PipeInfo(p *pipe.Definition) *PipeInfo {
+	return &PipeInfo{
 		Name:      p.Name,
 		Source:    p.Source,
 		Sink:      p.Sink,
@@ -85,10 +85,14 @@ func Pipe2PipeLog(p *pipe.Definition) *PipeLog {
 		Mode:      ForwardMode2RpcMode(p.Mode),
 		Endpoints: []string(*p.Endpoints),
 	}
+}
+
+// Pipe2PipeLog from a PipeLog
+func Pipe2PipeLog(p *pipe.Definition) *PipeLog {
 	return &PipeLog{
 		Timestamp: Now(),
 		Text:      "No new log",
-		PipeInfo:  pipeInfo,
+		PipeInfo:  Pipe2PipeInfo(p),
 	}
 }
 

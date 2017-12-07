@@ -54,7 +54,6 @@ func (pipe *Pipe) Connect() {
 				log.Println(err)
 			}
 			done <- true
-			time.Sleep(time.Second * 1)
 		}()
 		go func() {
 			defer trace.Tracer.ScopedTrace()()
@@ -63,7 +62,6 @@ func (pipe *Pipe) Connect() {
 				log.Println(err)
 			}
 			done <- true
-			time.Sleep(time.Second * 1)
 		}()
 		go func() {
 			log.Println("share.Queue.Push(&pipe.Definition)", pipe.Definition)

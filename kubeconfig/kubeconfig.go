@@ -31,7 +31,11 @@ import (
 
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	"github.com/davidwalter0/forwarder/share"
+	"github.com/davidwalter0/forwarder/tracer"
 	"github.com/davidwalter0/transform"
+
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -42,22 +46,22 @@ var kubeRestConfig *restclient.Config
 // clientSet api calls
 var clientSet *kubernetes.Clientset
 
-// Cfg options to configure endPtDefn
-type Cfg struct {
-	File       string `json:"file"          doc:"yaml format file to import mappings from\n        name:\n          source: host:port\n          sink:   host:port\n        " default:"/var/lib/forwarder/pipes.yaml"`
-	Debug      bool   `json:"debug"         doc:"increase verbosity" default:"false"`
-	Kubeconfig string `json:"kubeconfig"    doc:"kubernetes auth secrets / configuration file"`
-	Kubernetes bool   `json:"kubernetes"    doc:"using kubernetes configuration, and enable endpoint load from a service name, if not, skip cluster config option parsing" default:"true"`
-}
-
 // CheckInCluster reports if the env variable is set for cluster
 func CheckInCluster() bool {
 	return len(os.Getenv("KUBERNETES_PORT")) > 0
 }
 
-// LoadCfg sets up kubernetes authentication options
-func (cfg *Cfg) LoadCfg() {
+// LoadKubernetesConfig sets up kubernetes authentication options
+func LoadKubernetesConfig(cfg *share.ServerCfg) {
 	var err error
+	var jsonText []byte
+
+	jsonText, _ = json.MarshalIndent(cfg, "", "  ")
+	if cfg.Debug {
+		fmt.Printf("\n%v\n", string(jsonText))
+	}
+	trace.Enabled = cfg.Debug
+
 	// creates the in-cluster configuration
 	kubeRestConfig, err = restclient.InClusterConfig()
 	if err != nil {
