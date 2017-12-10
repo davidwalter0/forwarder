@@ -19,7 +19,7 @@ import (
 
 const (
 	// TickDelay delay between log entries
-	TickDelay = time.Duration(1)
+	TickDelay = time.Duration(10 * time.Second)
 	// Open : State
 	Open = iota
 	// Closed : State

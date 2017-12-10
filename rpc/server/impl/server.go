@@ -2,6 +2,7 @@ package impl
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"reflect"
 	"time"
@@ -43,13 +44,13 @@ func Now() *ts.Timestamp {
 func Generator() {
 	for {
 		pipeGen <- MockPipeGen("Gen")
-		time.Sleep(time.Second * 30)
+		time.Sleep(share.TickDelay)
 	}
 }
 
 // MockWatch could be used to test watch flow vestigial used as preliminary test code
 func (w *WatcherServer) MockWatch(ignore *empty.Empty, stream pb.Watcher_WatchServer) error {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(share.TickDelay)
 	defer ticker.Stop()
 	go Generator()
 	for {
@@ -76,6 +77,8 @@ func (w *WatcherServer) GetPipe(ctx context.Context, pipeName *pb.PipeName) (*pb
 	// return MockPipeInfo(), nil
 	defer w.Mgr.Monitor()()
 	if v, ok := w.Mgr.Listeners[pipeName.Name]; ok {
+		fmt.Println("v", v)
+		fmt.Println("v.Definition", v.Definition)
 		return pb.Pipe2PipeInfo(&v.Definition), nil
 	}
 	return MockPipeInfo(), nil
@@ -83,7 +86,7 @@ func (w *WatcherServer) GetPipe(ctx context.Context, pipeName *pb.PipeName) (*pb
 
 // Watch status manager to enable distributed observation via rpc
 func (w *WatcherServer) Watch(ignore *empty.Empty, stream pb.Watcher_WatchServer) error {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(share.TickDelay)
 	defer ticker.Stop()
 	// go Generator()
 	for {

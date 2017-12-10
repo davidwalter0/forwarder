@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/davidwalter0/forwarder/pipe"
+	"github.com/davidwalter0/forwarder/util"
 	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
@@ -31,9 +32,10 @@ func ToTime(ts *timestamp.Timestamp) time.Time {
 	return time.Unix(ts.Seconds, int64(ts.Nanos))
 }
 
-var MAXROWS uint64 = uint64(15)
+// PageLines number of lines between headers
+var PageLines uint64 = uint64(15)
 
-// ForwardMode2RpcMode
+// ForwardMode2RpcMode conversion from string
 func ForwardMode2RpcMode(mode string) (m Mode) {
 	m = Mode_P2P
 	switch mode {
@@ -47,7 +49,7 @@ func ForwardMode2RpcMode(mode string) (m Mode) {
 	return
 }
 
-// RpcMode2ForwardMode
+// RpcMode2ForwardMode conversion from Mode
 func RpcMode2ForwardMode(mode Mode) (m string) {
 	m = "Point2Point"
 	switch mode {
@@ -76,6 +78,13 @@ func (l *PipeLog) Definition() *pipe.Definition {
 
 // Pipe2PipeLog from a PipeLog
 func Pipe2PipeInfo(p *pipe.Definition) *PipeInfo {
+	if p == nil {
+		return nil
+	}
+	fmt.Println(util.Jsonify(p))
+	if p.Endpoints == nil {
+		p.Endpoints = &pipe.EP{}
+	}
 	return &PipeInfo{
 		Name:      p.Name,
 		Source:    p.Source,
@@ -98,7 +107,7 @@ func Pipe2PipeLog(p *pipe.Definition) *PipeLog {
 
 // ToString from a PipeLog
 func (l *PipeLog) ToString(row uint64) string {
-	if row%MAXROWS == 0 {
+	if row%PageLines == 0 {
 		return fmt.Sprintf("%-20.20v%-15v%-15v%-15.15v%-15v%-15v%-5v%-15s\n",
 			"Timestamp", "Name", "Source", "Sink", "Service", "Namespace", "Mode", "Endpoints") +
 			fmt.Sprintf("%-20.20v%-15.15v%-15.15v%-15.15v%-15.15v%-15.15v%-5.5v%-v",

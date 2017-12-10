@@ -44,6 +44,7 @@ $(target): $(build_deps) $(depends) Makefile
 	    args="-s -w -X main.Version=$${version} -X main.Build=$$(date -u +%Y.%m.%d.%H.%M.%S.%:::z) -X main.Commit=$$(git log --format=%h-%aI -n1)";	\
 	fi;															\
 	CGO_ENABLED=0 go build --tags netgo -ldflags "$${args}" -o $@ $(build_deps) ;
+	make -C rpc
 
 install: build
 	cp $(target) /go/bin/

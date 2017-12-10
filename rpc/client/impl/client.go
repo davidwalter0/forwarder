@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	pb "github.com/davidwalter0/forwarder/rpc/pipe"
 	empty "github.com/golang/protobuf/ptypes/empty"
@@ -20,17 +21,18 @@ func RunPipeInfoRequest(client pb.WatcherClient, pipeName *pb.PipeName) {
 
 // RunPipeLogClient connects to pipe log service and monitors the logs
 func RunPipeLogClient(client pb.WatcherClient) {
+	Logger := log.New(os.Stderr, "ERROR", log.Lshortfile)
 	stream, err := client.Watch(context.Background(), &empty.Empty{})
 	if err != nil {
-		log.Fatalf("%v.Watch(_) = _, %v", client, err)
+		Logger.Printf("%v.Watch(_) = _, %v", client, err)
 	}
 	var row uint64
 	for {
 		if pipe, err := stream.Recv(); err != nil {
-			log.Printf("%v.Recv() got error %v, want %v\n", stream, err, nil)
+			Logger.Printf("%v.Recv() got error %v, want %v\n", stream, err, nil)
 			break
 		} else {
-			fmt.Println(pipe.ToString(row))
+			Logger.Println(pipe.ToString(row))
 			row++
 		}
 	}

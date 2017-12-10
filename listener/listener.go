@@ -166,7 +166,7 @@ func (ml *ManagedListener) StopWatchNotify() {
 // EpWatcher check for endpoints
 func (ml *ManagedListener) EpWatcher() {
 	if ml != nil {
-		ticker := time.NewTicker(share.TickDelay * time.Second)
+		ticker := time.NewTicker(share.TickDelay)
 		defer ticker.Stop()
 		for {
 			select {

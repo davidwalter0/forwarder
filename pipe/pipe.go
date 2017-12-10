@@ -15,7 +15,14 @@ import (
 func NewPipe(name string, mapAdd, mapRm chan *Pipe, mutex *mutex.Mutex, source, sink net.Conn, definition Definition) (pipe *Pipe) {
 	defer trace.Tracer.ScopedTrace()()
 	defer mutex.Monitor()()
-	pipe = &Pipe{Name: name, SourceConn: source, SinkConn: sink, MapRm: mapRm, Mutex: mutex, Definition: definition}
+	pipe = &Pipe{Name: name,
+		SourceConn: source,
+		SinkConn:   sink,
+		MapRm:      mapRm,
+		Mutex:      mutex,
+		Definition: definition,
+	}
+	pipe.Endpoints = &EP{}
 	mapAdd <- pipe
 	return
 }
@@ -67,7 +74,7 @@ func (pipe *Pipe) Connect() {
 			log.Println("share.Queue.Push(&pipe.Definition)", pipe.Definition)
 			share.Queue.Push(&pipe.Definition)
 			for {
-				ticker := time.NewTicker(share.TickDelay * time.Second)
+				ticker := time.NewTicker(share.TickDelay)
 				defer ticker.Stop()
 				select {
 				case <-done:

@@ -201,7 +201,7 @@ func (mgr *Mgr) Watch() {
 			err = watcher.Add(mgr.EnvCfg.File)
 			if err != nil {
 				log.Println(err)
-				time.Sleep(time.Second * 3)
+				time.Sleep(share.TickDelay)
 			} else {
 				select {
 				case event := <-watcher.Events:

@@ -41,7 +41,7 @@ var mgr = mgmt.NewMgr(envCfg)
 var retries = 3
 
 // logReloadTimeout in seconds
-var logReloadTimeout = time.Duration(time.Second * 600)
+var logReloadTimeout = time.Duration(share.TickDelay)
 
 func main() {
 	envCfg.Read()
