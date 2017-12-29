@@ -8,6 +8,9 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/davidwalter0/forwarder/kubeconfig"
 	"github.com/davidwalter0/forwarder/listener"
 	"github.com/davidwalter0/forwarder/pipe"
 	"github.com/davidwalter0/forwarder/set"
@@ -16,6 +19,7 @@ import (
 	"github.com/davidwalter0/go-mutex"
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v2"
+	// log "github.com/davidwalter0/logwriter"
 )
 
 // retries number of attempts
@@ -55,6 +59,7 @@ type Mgr struct {
 	Listeners map[string]*listener.ManagedListener
 	Mutex     *mutex.Mutex
 	EnvCfg    *share.ServerCfg
+	Clientset *kubernetes.Clientset
 }
 
 // NewMgr create a new Mgr
@@ -63,6 +68,7 @@ func NewMgr(EnvCfg *share.ServerCfg) *Mgr {
 		Listeners: make(map[string]*listener.ManagedListener),
 		Mutex:     &mutex.Mutex{},
 		EnvCfg:    EnvCfg,
+		Clientset: kubeconfig.NewClientset(EnvCfg),
 	}
 }
 
@@ -128,7 +134,7 @@ func (mgr *Mgr) Merge(lhs *map[string]*pipe.Definition) {
 				(*rhs)[k].Name = k
 				(*lhs)[k] = NewFromDefinition((*rhs)[k])
 				(*lhs)[k].Name = k
-				mgr.Listeners[k] = NewManagedListener((*lhs)[k], EnvCfg)
+				mgr.Listeners[k] = NewManagedListener((*lhs)[k], EnvCfg, mgr.Clientset)
 				mgr.Listeners[k].Open()
 			}
 		}
@@ -140,7 +146,7 @@ func (mgr *Mgr) Merge(lhs *map[string]*pipe.Definition) {
 		(*rhs)[k].Name = k
 		(*lhs)[k] = NewFromDefinition((*rhs)[k])
 		(*lhs)[k].Name = k
-		mgr.Listeners[k] = NewManagedListener((*lhs)[k], EnvCfg)
+		mgr.Listeners[k] = NewManagedListener((*lhs)[k], EnvCfg, mgr.Clientset)
 		mgr.Listeners[k].Open()
 	}
 	// mgr.LoadEndpoints()

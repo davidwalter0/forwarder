@@ -12,7 +12,11 @@ import (
 	"github.com/davidwalter0/forwarder/rpc/client/impl"
 	pb "github.com/davidwalter0/forwarder/rpc/pipe"
 	"github.com/davidwalter0/forwarder/share"
+	// "github.com/davidwalter0/logwriter"
+	// log "github.com/davidwalter0/logwriter"
 )
+
+// var writer, log = impl.GetLogger()
 
 // Build info text
 var Build string

@@ -8,11 +8,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/davidwalter0/forwarder/kubeconfig"
 	"github.com/davidwalter0/forwarder/pipe"
 	"github.com/davidwalter0/forwarder/share"
 	"github.com/davidwalter0/forwarder/tracer"
 	"github.com/davidwalter0/go-mutex"
+	// log "github.com/davidwalter0/logwriter"
 )
 
 var retries = 3
@@ -48,11 +51,12 @@ type ManagedListener struct {
 	MapAdd     chan *pipe.Pipe
 	MapRm      chan *pipe.Pipe
 	StopWatch  chan bool
+	clientset  *kubernetes.Clientset
 	Active     uint64
 }
 
 // NewManagedListener create and populate a ManagedListener
-func NewManagedListener(pipedef *pipe.Definition, envCfg *share.ServerCfg) (ml *ManagedListener) {
+func NewManagedListener(pipedef *pipe.Definition, envCfg *share.ServerCfg, clientset *kubernetes.Clientset) (ml *ManagedListener) {
 	if pipedef != nil {
 		defer trace.Tracer.ScopedTrace()()
 		ml = &ManagedListener{
@@ -65,6 +69,7 @@ func NewManagedListener(pipedef *pipe.Definition, envCfg *share.ServerCfg) (ml *
 			MapRm:      make(chan *pipe.Pipe, 3),
 			StopWatch:  make(chan bool, 3),
 			Debug:      pipedef.Debug || envCfg.Debug,
+			clientset:  clientset,
 			Active:     0,
 		}
 	}
@@ -126,7 +131,7 @@ func (ml *ManagedListener) LoadEndpoints() {
 	if ml != nil {
 		defer ml.Monitor()()
 		var ep = pipe.EP{}
-		if ep = kubeconfig.Endpoints(ml.Service, ml.Namespace); !ep.Equal(ml.Endpoints) {
+		if ep = kubeconfig.Endpoints(ml.clientset, ml.Service, ml.Namespace); !ep.Equal(ml.Endpoints) {
 			ml.Endpoints = &ep
 		}
 	}

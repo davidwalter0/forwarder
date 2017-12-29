@@ -16,6 +16,7 @@ import (
 	pb "github.com/davidwalter0/forwarder/rpc/pipe"
 	impl "github.com/davidwalter0/forwarder/rpc/server/impl"
 	"github.com/davidwalter0/forwarder/share"
+	// log "github.com/davidwalter0/logwriter"
 )
 
 // Build info text

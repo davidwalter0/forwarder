@@ -9,6 +9,7 @@ import (
 	"github.com/davidwalter0/forwarder/share"
 	"github.com/davidwalter0/forwarder/tracer"
 	"github.com/davidwalter0/go-mutex"
+	// log "github.com/davidwalter0/logwriter"
 )
 
 // NewPipe creates a Pipe and returns a pointer to the same

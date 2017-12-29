@@ -1,5 +1,11 @@
-echo:
+dashboard:
   source: "0.0.0.0:8999"
+  service: dashboard
+  namespace: kube-system
+  debug: true
+
+echo:
+  source: "0.0.0.0:8082"
   # sink: ":8888"
   sink: ":8081"
   debug: true

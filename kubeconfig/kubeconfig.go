@@ -36,44 +36,47 @@ import (
 	"github.com/davidwalter0/forwarder/tracer"
 
 	"k8s.io/client-go/tools/clientcmd"
+	// log "github.com/davidwalter0/logwriter"
 )
-
-// kubeRestConfig kubernetes config object
-var kubeRestConfig *restclient.Config
-
-// clientSet api calls
-var clientSet *kubernetes.Clientset
 
 // CheckInCluster reports if the env variable is set for cluster
 func CheckInCluster() bool {
 	return len(os.Getenv("KUBERNETES_PORT")) > 0
 }
 
-// LoadKubernetesConfig sets up kubernetes authentication options
-func LoadKubernetesConfig(cfg *share.ServerCfg) {
-	var err error
-	var jsonText []byte
+// NewClientset returns a new handle to a kubernetes client
+func NewClientset(cfg *share.ServerCfg) *kubernetes.Clientset {
+	if cfg.Kubernetes {
+		// kubeRestConfig kubernetes config object
+		var kubeRestConfig *restclient.Config
+		// clientset is a handle to execute kubernetes commands
+		var clientset *kubernetes.Clientset
+		var err error
+		var jsonText []byte
 
-	jsonText, _ = json.MarshalIndent(cfg, "", "  ")
-	if cfg.Debug {
-		fmt.Printf("\n%v\n", string(jsonText))
-	}
-	trace.Enabled = cfg.Debug
-
-	// creates the in-cluster configuration
-	kubeRestConfig, err = restclient.InClusterConfig()
-	if err != nil {
-		// try with a kubeconfig file
-		kubeRestConfig, err = clientcmd.BuildConfigFromFlags("", cfg.Kubeconfig)
-	}
-
-	if err == nil {
-		// creates the clientSet
-		clientSet, err = kubernetes.NewForConfig(kubeRestConfig)
-		if err == nil {
-			cfg.Kubernetes = true
+		if cfg.Debug {
+			jsonText, _ = json.MarshalIndent(cfg, "", "  ")
+			fmt.Printf("\n%v\n", string(jsonText))
 		}
+		trace.Enabled = cfg.Debug
+
+		// creates the in-cluster configuration
+		kubeRestConfig, err = restclient.InClusterConfig()
+		if err != nil {
+			// try with a kubeconfig file
+			kubeRestConfig, err = clientcmd.BuildConfigFromFlags("", cfg.Kubeconfig)
+		}
+
+		if err == nil {
+			// creates the clientset
+			clientset, err = kubernetes.NewForConfig(kubeRestConfig)
+			if err == nil {
+				cfg.Kubernetes = true
+			}
+		}
+		return clientset
 	}
+	return nil
 }
 
 // ErrorHandler print error message based on error type
@@ -90,12 +93,12 @@ func ErrorHandler(name string, err error) {
 }
 
 // Endpoints for a service name in the given namespace
-func Endpoints(name, namespace string) (endpoints []string) {
-	if clientSet != nil {
+func Endpoints(clientset *kubernetes.Clientset, name, namespace string) (endpoints []string) {
+	if clientset != nil {
 		var eps *v1.EndpointsList
 		var err error
 		// use the current context in kubeconfig
-		eps, err = clientSet.CoreV1().Endpoints(namespace).List(metav1.ListOptions{})
+		eps, err = clientset.CoreV1().Endpoints(namespace).List(metav1.ListOptions{})
 		if err == nil {
 			for _, ep := range eps.Items {
 				meta := ep.ObjectMeta

@@ -15,6 +15,7 @@ import (
 	"github.com/davidwalter0/forwarder/tracer"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	ts "github.com/golang/protobuf/ptypes/timestamp"
+	// log "github.com/davidwalter0/logwriter"
 )
 
 // ManagedListener control service listening socket + active connections

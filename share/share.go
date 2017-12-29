@@ -15,6 +15,7 @@ import (
 
 	"github.com/davidwalter0/forwarder/chanqueue"
 	"github.com/davidwalter0/go-cfg"
+	// log "github.com/davidwalter0/logwriter"
 )
 
 const (
