@@ -41,12 +41,12 @@ enum Mode {
 }
 
 message PipeInfo {
-  string          Name                 = 1 ;
+  string          Key                  = 1 ;
   string          Source               = 2 ;
   string          Sink                 = 3 ;
   bool            EnableEp             = 4 ;
-  string          Service              = 5 ;
-  string          Namespace            = 6 ;
+  string          Namespace            = 5 ;
+  string          Name                 = 6 ;
   bool            Debug                = 7 ;
   Mode            Mode                 = 8 ;
   repeated string Endpoints            = 9 ;
@@ -72,12 +72,12 @@ message Pipe {
     EndPointList  = 1;
     ServiceLookup = 2;
   }
-  string  Name       = 1 ;
+  string  Key        = 1 ;
   string  Source     = 2 ;
   string  Sink       = 3 ;
   bool    EnableEp   = 4 ;
-  string  Service    = 5 ;
-  string  Namespace  = 6 ;
+  string  Namespace  = 5 ;
+  string  Name       = 6 ;
   bool    Debug      = 7 ;
   Mode PipeType  = 9 ;
   repeated string Endpoints  = 8 ;

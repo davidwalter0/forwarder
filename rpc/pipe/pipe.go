@@ -66,13 +66,13 @@ func RpcMode2ForwardMode(mode Mode) (m string) {
 // Definition from a PipeLog
 func (l *PipeLog) Definition() *pipe.Definition {
 	return &pipe.Definition{
-		Name:      l.PipeInfo.Name,
+		Key:       l.PipeInfo.Key,
 		Source:    l.PipeInfo.Source,
 		Sink:      l.PipeInfo.Sink,
-		Service:   l.PipeInfo.Service,
 		Namespace: l.PipeInfo.Namespace,
+		Name:      l.PipeInfo.Name,
 		Mode:      RpcMode2ForwardMode(l.PipeInfo.Mode),
-		Endpoints: (*pipe.EP)(&l.PipeInfo.Endpoints),
+		Endpoints: (pipe.EP)(l.PipeInfo.Endpoints),
 	}
 }
 
@@ -83,16 +83,16 @@ func Pipe2PipeInfo(p *pipe.Definition) *PipeInfo {
 	}
 	fmt.Println(util.Jsonify(p))
 	if p.Endpoints == nil {
-		p.Endpoints = &pipe.EP{}
+		p.Endpoints = pipe.EP{}
 	}
 	return &PipeInfo{
-		Name:      p.Name,
+		Key:       p.Key,
 		Source:    p.Source,
 		Sink:      p.Sink,
-		Service:   p.Service,
+		Name:      p.Name,
 		Namespace: p.Namespace,
 		Mode:      ForwardMode2RpcMode(p.Mode),
-		Endpoints: []string(*p.Endpoints),
+		Endpoints: []string(p.Endpoints),
 	}
 }
 
@@ -112,21 +112,21 @@ func (l *PipeLog) ToString(row uint64) string {
 			"Timestamp", "Name", "Source", "Sink", "Service", "Namespace", "Mode", "Endpoints") +
 			fmt.Sprintf("%-20.20v%-15.15v%-15.15v%-15.15v%-15.15v%-15.15v%-5.5v%-v",
 				ToTime(l.Timestamp).String()[:19],
-				l.PipeInfo.Name,
+				l.PipeInfo.Key,
 				l.PipeInfo.Source,
 				l.PipeInfo.Sink,
-				l.PipeInfo.Service,
 				l.PipeInfo.Namespace,
+				l.PipeInfo.Name,
 				l.PipeInfo.Mode,
 				l.PipeInfo.Endpoints)
 	}
 	return fmt.Sprintf("%-20.20v%-15.15v%-15.15v%-15.15v%-15.15v%-15.15v%-5.5v%-v",
 		ToTime(l.Timestamp).String()[:19],
-		l.PipeInfo.Name,
+		l.PipeInfo.Key,
 		l.PipeInfo.Source,
 		l.PipeInfo.Sink,
-		l.PipeInfo.Service,
 		l.PipeInfo.Namespace,
+		l.PipeInfo.Name,
 		l.PipeInfo.Mode,
 		l.PipeInfo.Endpoints)
 

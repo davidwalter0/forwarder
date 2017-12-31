@@ -7,12 +7,12 @@ import (
 // MockPipeInfo test object
 func MockPipeInfo() *pb.PipeInfo {
 	return &pb.PipeInfo{
-		Name:      "Example",
+		Key:       "Example",
 		Source:    "0.0.0.0:80",
 		Sink:      "10.30.0.80",
 		EnableEp:  false,
-		Service:   "",
 		Namespace: "",
+		Name:      "",
 		Debug:     false,
 		Endpoints: []string{},
 		Mode:      pb.Mode_P2P,
@@ -25,12 +25,12 @@ func MockPipeGen(which string) *pb.PipeLog {
 		Timestamp: Now(),
 		Text:      which,
 		PipeInfo: &pb.PipeInfo{
-			Name:      "Example",
+			Key:       "Example",
 			Source:    "0.0.0.0:80",
 			Sink:      "10.30.0.80",
 			EnableEp:  false,
-			Service:   "",
 			Namespace: "",
+			Name:      "",
 			Debug:     false,
 			Endpoints: []string{},
 			Mode:      pb.Mode_P2P,
