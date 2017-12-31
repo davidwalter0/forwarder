@@ -29,7 +29,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 
-	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
+	// Uncomment the following line to load the gcp plugin (only
+	// required to authenticate against GKE clusters).
+
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"github.com/davidwalter0/forwarder/share"
@@ -38,6 +40,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	// log "github.com/davidwalter0/logwriter"
 )
+
+// InCluster true when endpoints are accessible, when the service is
+// running with the cluster's network namespaces
+var InCluster bool
 
 // CheckInCluster reports if the env variable is set for cluster
 func CheckInCluster() bool {
@@ -65,6 +71,8 @@ func NewClientset(cfg *share.ServerCfg) *kubernetes.Clientset {
 		if err != nil {
 			// try with a kubeconfig file
 			kubeRestConfig, err = clientcmd.BuildConfigFromFlags("", cfg.Kubeconfig)
+		} else {
+			InCluster = true
 		}
 
 		if err == nil {

@@ -15,28 +15,9 @@ import (
 	"github.com/davidwalter0/forwarder/share"
 	"github.com/davidwalter0/forwarder/tracer"
 	"github.com/davidwalter0/go-mutex"
-	// log "github.com/davidwalter0/logwriter"
 )
 
 var retries = 3
-
-// Listen open listener on address
-func Listen(address string) (listener net.Listener) {
-	defer trace.Tracer.ScopedTrace()()
-	var err error
-	if false {
-		defer trace.Tracer.ScopedTrace(fmt.Sprintf("listener:%v err: %v", listener, err))()
-	}
-	for i := 0; i < retries; i++ {
-		listener, err = net.Listen("tcp", address)
-		if err != nil {
-			log.Printf("net.Listen(\"tcp\", %s ) failed: %v\n", address, err)
-		} else {
-			return listener
-		}
-	}
-	return
-}
 
 // ManagedListener and it's dependent objects
 type ManagedListener struct {
@@ -51,12 +32,17 @@ type ManagedListener struct {
 	MapAdd     chan *pipe.Pipe
 	MapRm      chan *pipe.Pipe
 	StopWatch  chan bool
-	clientset  *kubernetes.Clientset
+	Clientset  *kubernetes.Clientset
 	Active     uint64
+	Interface  interface{}
+	InCluster  bool
 }
 
 // NewManagedListener create and populate a ManagedListener
-func NewManagedListener(pipedef *pipe.Definition, envCfg *share.ServerCfg, clientset *kubernetes.Clientset) (ml *ManagedListener) {
+func NewManagedListener(
+	pipedef *pipe.Definition,
+	envCfg *share.ServerCfg,
+	Clientset *kubernetes.Clientset) (ml *ManagedListener) {
 	if pipedef != nil {
 		defer trace.Tracer.ScopedTrace()()
 		ml = &ManagedListener{
@@ -69,10 +55,13 @@ func NewManagedListener(pipedef *pipe.Definition, envCfg *share.ServerCfg, clien
 			MapRm:      make(chan *pipe.Pipe, 3),
 			StopWatch:  make(chan bool, 3),
 			Debug:      pipedef.Debug || envCfg.Debug,
-			clientset:  clientset,
+			Clientset:  Clientset,
 			Active:     0,
+			InCluster:  kubeconfig.InCluster,
 		}
 	}
+
+	trace.Tracer.Enable(envCfg.Debug)
 	return
 }
 
@@ -128,11 +117,11 @@ func (ml *ManagedListener) Open() {
 
 // LoadEndpoints queries the service name for endpoints
 func (ml *ManagedListener) LoadEndpoints() {
-	if ml != nil {
+	if ml != nil && ml.InCluster {
 		defer ml.Monitor()()
 		var ep = pipe.EP{}
-		if ep = kubeconfig.Endpoints(ml.clientset, ml.Service, ml.Namespace); !ep.Equal(ml.Endpoints) {
-			ml.Endpoints = &ep
+		if ep = kubeconfig.Endpoints(ml.Clientset, ml.Name, ml.Namespace); !ep.Equal(&ml.Endpoints) {
+			ml.Endpoints = ep
 		}
 	}
 }
@@ -145,9 +134,9 @@ func (ml *ManagedListener) NextEndPoint() (sink string) {
 		defer ml.Monitor()()
 		var n uint64
 		// Don't use k8s endpoint lookup if not in a k8s cluster
-		if ml.Kubernetes && ml.EnableEp && len(*ml.Endpoints) > 0 {
-			n = atomic.AddUint64(&ml.n, 1) % uint64(len(*ml.Endpoints))
-			sink = (*ml.Endpoints)[n]
+		if ml.Kubernetes && ml.EnableEp && len(ml.Endpoints) > 0 {
+			n = atomic.AddUint64(&ml.n, 1) % uint64(len(ml.Endpoints))
+			sink = (ml.Endpoints)[n]
 		} else {
 			sink = ml.Sink
 		}
@@ -180,7 +169,7 @@ func (ml *ManagedListener) EpWatcher() {
 			case <-ticker.C:
 				ml.LoadEndpoints()
 				if ml.Debug {
-					log.Println(ml.Name, ml.Source, ml.Sink, ml.Service, ml.Namespace, ml.Debug, *ml.Endpoints, "active", ml.Active)
+					log.Println(ml.Key, ml.Source, ml.Sink, ml.Name, ml.Namespace, ml.Debug, ml.Endpoints, "active", ml.Active)
 				}
 			}
 		}
@@ -206,7 +195,7 @@ func (ml *ManagedListener) Listening() {
 			log.Printf("Connection failed: %v\n", err)
 			break
 		}
-		var pipe = pipe.NewPipe(ml.Name, ml.MapAdd, ml.MapRm, ml.Mutex, SourceConn, SinkConn, ml.Definition)
+		var pipe = pipe.NewPipe(ml.Key, ml.MapAdd, ml.MapRm, ml.Mutex, SourceConn, SinkConn, &ml.Definition)
 		go pipe.Connect()
 	}
 }
@@ -220,9 +209,32 @@ func (ml *ManagedListener) Close() {
 				log.Println("Error closing listener", ml.Listener)
 			}
 			defer ml.Monitor()()
+			var pipes = []*pipe.Pipe{}
 			for pipe := range ml.Pipes {
 				pipe.Close()
+				pipes = append(pipes, pipe)
+			}
+			for _, pipe := range pipes {
+				delete(ml.Pipes, pipe)
 			}
 		}
 	}
+}
+
+// Listen open listener on address
+func Listen(address string) (listener net.Listener) {
+	defer trace.Tracer.ScopedTrace()()
+	var err error
+	if true {
+		defer trace.Tracer.ScopedTrace(fmt.Sprintf("listener:%v err: %v", listener, err))()
+	}
+	for i := 0; i < retries; i++ {
+		listener, err = net.Listen("tcp", address)
+		if err != nil {
+			log.Printf("net.Listen(\"tcp\", %s ) failed: %v\n", address, err)
+		} else {
+			return listener
+		}
+	}
+	return
 }

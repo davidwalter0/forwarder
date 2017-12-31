@@ -7,11 +7,11 @@ import (
 // Equal compares two ManagedListener objects
 func (lhs *ManagedListener) Equal(rhs *ManagedListener) bool {
 	defer trace.Tracer.ScopedTrace()()
-	return lhs.Name == rhs.Name &&
+	return lhs.Key == rhs.Key &&
 		lhs.Source == rhs.Source &&
 		lhs.Sink == rhs.Sink &&
 		lhs.EnableEp == rhs.EnableEp &&
-		lhs.Service == rhs.Service &&
+		lhs.Name == rhs.Name &&
 		lhs.Namespace == rhs.Namespace &&
 		lhs.Mode == rhs.Mode &&
 		lhs.Debug == rhs.Debug
@@ -19,11 +19,11 @@ func (lhs *ManagedListener) Equal(rhs *ManagedListener) bool {
 
 // Copy points w/o erasing EndPoints
 func (lhs *ManagedListener) Copy(rhs *ManagedListener) *ManagedListener {
-	lhs.Name = rhs.Name
+	lhs.Key = rhs.Key
 	lhs.Source = rhs.Source
 	lhs.Sink = rhs.Sink
 	lhs.EnableEp = rhs.EnableEp
-	lhs.Service = rhs.Service
+	lhs.Name = rhs.Name
 	lhs.Namespace = rhs.Namespace
 	lhs.Debug = rhs.Debug
 	lhs.Mode = rhs.Mode

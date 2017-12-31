@@ -9,21 +9,21 @@ import (
 	"github.com/davidwalter0/forwarder/share"
 	"github.com/davidwalter0/forwarder/tracer"
 	"github.com/davidwalter0/go-mutex"
-	// log "github.com/davidwalter0/logwriter"
 )
 
 // NewPipe creates a Pipe and returns a pointer to the same
-func NewPipe(name string, mapAdd, mapRm chan *Pipe, mutex *mutex.Mutex, source, sink net.Conn, definition Definition) (pipe *Pipe) {
+func NewPipe(Key string, mapAdd, mapRm chan *Pipe, mutex *mutex.Mutex, source, sink net.Conn, definition *Definition) (pipe *Pipe) {
 	defer trace.Tracer.ScopedTrace()()
 	defer mutex.Monitor()()
-	pipe = &Pipe{Name: name,
+	pipe = &Pipe{
+		Key:        Key,
 		SourceConn: source,
 		SinkConn:   sink,
 		MapRm:      mapRm,
 		Mutex:      mutex,
-		Definition: definition,
+		Definition: *definition,
 	}
-	pipe.Endpoints = &EP{}
+	pipe.Endpoints = definition.Endpoints
 	mapAdd <- pipe
 	return
 }
@@ -31,7 +31,7 @@ func NewPipe(name string, mapAdd, mapRm chan *Pipe, mutex *mutex.Mutex, source, 
 // Pipe a connection initiated by the return from listen and the
 // up/down stream host:port pairs
 type Pipe struct {
-	Name       string
+	Key        string
 	SourceConn net.Conn
 	SinkConn   net.Conn
 	MapRm      chan *Pipe

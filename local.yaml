@@ -1,0 +1,12 @@
+dashboard:
+  # source: "172.17.4.201:8999"
+  source: ":8999"
+  service: kubernetes-dashboard
+  namespace: kube-system
+  debug: true
+
+ssh:
+  source: "strange:2200"
+  # sink: ":8888"
+  sink: "strange:22"
+  debug: true
